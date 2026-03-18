@@ -13,16 +13,16 @@
 #                                    real upstream server (if allowed)
 #
 # Users:
-#   coder  (uid 1000) — runs code-server, Chromium, Claude Code,
-#                       and all VS Code processes. Has NO special
-#                       network privileges. All outbound :443/:80
-#                       is intercepted by mitmproxy.
+#   coder — runs code-server, Chromium, Claude Code,
+#           and all VS Code processes. Has NO special
+#           network privileges. All outbound :443/:80
+#           is intercepted by mitmproxy.
 #
-#   mitm   (uid 1001) — runs mitmproxy only. The iptables REDIRECT
-#                       exemption is granted to this uid exclusively,
-#                       so it is the only process that can make real
-#                       outbound HTTPS connections. Cannot sudo.
-#                       Cannot write to the workspace.
+#   mitm  — runs mitmproxy only. The iptables REDIRECT
+#           exemption is granted to this uid exclusively,
+#           so it is the only process that can make real
+#           outbound HTTPS connections. Cannot sudo.
+#           Cannot write to the workspace.
 #
 # Multi-stage Stages (each has its own cache layer):
 #
@@ -76,7 +76,17 @@ ENV CODER_USER=${CODER_USER} \
     MITM_USER=${MITM_USER} \
     MITM_UID=${MITM_UID}
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update
+
+# ════════════════════════════════════════════════════════════
+# core-utilities
+#
+# Installs the core utilities needed to for the non-display
+# elements of the architecture
+#
+# ════════════════════════════════════════════════════════════
+
+RUN apt-get install -y --no-install-recommends \
     # Certificates and basic network tools (needed by later stages)
     ca-certificates \
     curl \
@@ -96,14 +106,40 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Build tools (required by some npm packages)
     git \
     build-essential \
-    # PAM (for access.conf /mnt restriction)
-    libpam-modules \
-    # ACL tools (setfacl for /mnt restriction)
-    acl \
     # Misc
     jq \
     xterm \
+    less
+
+# ════════════════════════════════════════════════════════════
+# display-stack
+#
+# Installs the virtual display, window manager, noVNC bridge,
+# and in-container browser. These change very infrequently and
+# are expensive to install, so they get their own stage.
+#
+# ════════════════════════════════════════════════════════════
+
+RUN apt-get install -y --no-install-recommends \
+    tigervnc-standalone-server \
+    tigervnc-common \
+    openbox \
+    novnc \
+    websockify \
+    chromium-browser \
+    fonts-liberation \
+    fonts-dejavu-core \
+    fonts-noto \
+    dbus-x11 \
     && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# TODO: work around ubuntu and snaps? use debian?
+#RUN snap install chromium
+
+# apt install artifact clean-up
+RUN apt-get clean \
+    && apt autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Create service users ──────────────────────────────────────
@@ -144,8 +180,11 @@ FROM base AS node-runtime
 ARG NODE_MAJOR=20
 
 RUN curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - \
-    && apt-get install -y nodejs \
-    && apt-get clean \
+    && apt-get install -y nodejs
+
+# apt install artifact clean-up
+RUN apt-get clean \
+    && apt autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 
@@ -169,9 +208,13 @@ RUN curl -fsSL \
     "https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server_${CODE_SERVER_VERSION}_amd64.deb" \
     -o /tmp/code-server.deb \
     && dpkg -i /tmp/code-server.deb \
-    && rm /tmp/code-server.deb \
-    && apt-get install -f -y \
-    && apt-get clean \
+    && rm /tmp/code-server.deb
+# TODO: come back to this:
+#    && apt-get install -f -y
+
+# apt install artifact clean-up
+RUN apt-get clean \
+    && apt autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 RUN if [ "${CLAUDE_CODE_VERSION}" = "latest" ]; then \
@@ -185,13 +228,16 @@ RUN if [ "${CLAUDE_CODE_VERSION}" = "latest" ]; then \
 # STAGE 3b — mitmproxy-install
 #
 # Installs mitmproxy in an isolated Python venv.
-# Branches from node-runtime (not code-server-install) so this
-# stage is completely independent — rebuilding it never touches
-# the code-server layer.
+#
+# Branches from BASE (not node-runtime) because mitmproxy is
+# pure Python and has no dependency on Node.js whatsoever.
+# This means changing NODE_MAJOR does not invalidate this stage,
+# and changing MITMPROXY_VERSION does not touch code-server.
+# The two stages are fully independent of each other.
 #
 # Rebuild trigger: MITMPROXY_VERSION changes.
 # ════════════════════════════════════════════════════════════
-FROM node-runtime AS mitmproxy-install
+FROM base AS mitmproxy-install
 
 ARG MITMPROXY_VERSION=10.3.1
 
@@ -205,41 +251,6 @@ RUN python3 -m venv /opt/mitmproxy-venv \
 RUN chown -R "${MITM_USER}:${MITM_USER}" /opt/mitmproxy-venv \
     && chmod -R o-x /opt/mitmproxy-venv/bin
 
-
-# ════════════════════════════════════════════════════════════
-# STAGE 4 — display-stack
-#
-# Installs the virtual display, window manager, noVNC bridge,
-# and in-container browser. These change very infrequently and
-# are expensive to install, so they get their own stage.
-#
-# Merges outputs from code-server-install and mitmproxy-install.
-#
-# Rebuild trigger: display package versions or Chromium changes.
-# ════════════════════════════════════════════════════════════
-FROM code-server-install AS display-stack
-
-ARG DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    tigervnc-standalone-server \
-    tigervnc-common \
-    openbox \
-    novnc \
-    websockify \
-    chromium-browser \
-    fonts-liberation \
-    fonts-dejavu-core \
-    fonts-noto \
-    dbus-x11 \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# Merge: copy the mitmproxy venv from its independent build stage.
-# This is the point where both parallel build paths converge.
-COPY --from=mitmproxy-install /opt/mitmproxy-venv /opt/mitmproxy-venv
-
-
 # ════════════════════════════════════════════════════════════
 # STAGE 5 — final
 #
@@ -252,7 +263,7 @@ COPY --from=mitmproxy-install /opt/mitmproxy-venv /opt/mitmproxy-venv
 #
 # Rebuild trigger: any script, config, or ARG below changes.
 # ════════════════════════════════════════════════════════════
-FROM display-stack AS final
+FROM code-server-install AS final
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -277,6 +288,10 @@ RUN chmod +x \
         /scripts/install-extensions.sh \
         /scripts/launch-chromium.sh \
         /scripts/start-mitmproxy.sh
+
+# Merge: copy the mitmproxy venv from its independent build stage.
+# This is the point where both parallel build paths converge.
+COPY --from=mitmproxy-install /opt/mitmproxy-venv /opt/mitmproxy-venv
 
 # ── coder home directories and configs ───────────────────────
 RUN mkdir -p \

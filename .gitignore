@@ -5,3 +5,6 @@
 
 # Input to the sandbox
 sandbox/
+
+# local settings
+.env

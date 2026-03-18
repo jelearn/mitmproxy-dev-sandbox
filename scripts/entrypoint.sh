@@ -44,11 +44,15 @@ MITM_CA="${MITM_CA_DIR}/mitmproxy-ca-cert.pem"
 MITM_CONF_DIR="/home/${MITM_USER}/.mitmproxy"
 
 log()   { echo "[entrypoint] $(date '+%H:%M:%S') $*"; }
-error() { echo "[entrypoint] ERROR: $*" >&2; exit 1; }
+
+# NOTE: on error drop into bash to inspect
+# possibly remove this in future
+error() { echo "[entrypoint] ERROR: $*" >&2; bash; exit 1; }
 
 # ── Step 1: Validate API key ──────────────────────────────────
-[[ -z "${ANTHROPIC_API_KEY:-}" ]] && \
-    error "ANTHROPIC_API_KEY is not set. Add it to your .env file."
+#[[ -z "${ANTHROPIC_API_KEY:-}" ]] && \
+#    error "ANTHROPIC_API_KEY is not set. Add it to your .env file."
+ANTHROPIC_API_KEY="ignore"
 log "API key present (${#ANTHROPIC_API_KEY} chars)."
 
 # ── Step 2: Start mitmproxy as 'mitm' ─────────────────────────
@@ -63,7 +67,7 @@ chown "${MITM_USER}:${MITM_USER}" "${MITM_CONF_DIR}"
 # instead of its conf dir, making it easier for coder to find.
 ln -sf "${MITM_CA_DIR}" "${MITM_CONF_DIR}/ca-export" 2>/dev/null || true
 
-runuser -u "${MITM_USER}" -s /bin/bash -- -c "
+runuser -u "${MITM_USER}" -- /bin/bash -c "
     /opt/mitmproxy-venv/bin/mitmdump \
         --mode transparent \
         --listen-host 0.0.0.0 \
@@ -179,12 +183,15 @@ if [[ -n "${VNC_PASSWORD:-}" ]]; then
     VNC_SEC_ARGS="-SecurityTypes VncAuth -PasswordFile ${VNC_DIR}/passwd"
 else
     log "No VNC_PASSWORD set — unauthenticated (localhost only)."
-    VNC_SEC_ARGS="-SecurityTypes None"
+    # NOTE: Possibly remove this option an error out
+    # extra INSECURE arg is required
+    VNC_SEC_ARGS="-SecurityTypes None --I-KNOW-THIS-IS-INSECURE"
 fi
 
+# NOTE: This was removed as it seems to be an invalid parameter
+#        -geometry ${SCREEN_RES} \
 runuser -u "${CODER_USER}" -- bash -c "
     tigervncserver ${DISPLAY_NUM} \
-        -geometry ${SCREEN_RES} \
         -localhost no \
         -rfbport ${VNC_PORT} \
         ${VNC_SEC_ARGS} \
@@ -196,7 +203,7 @@ for i in $(seq 1 30); do
     [[ -S "${X_SOCKET}" ]] && break
     sleep 0.5
 done
-[[ -S "${X_SOCKET}" ]] || error "Xtigervnc did not start within 15 seconds."
+[[ -S "${X_SOCKET}" ]] || error "Xtigervnc did not start within 15 seconds." 
 log "Xtigervnc ready."
 
 # ── Step 6: Start Openbox ─────────────────────────────────────
@@ -243,16 +250,20 @@ fi
 
 # ── Step 9: Start noVNC ───────────────────────────────────────
 log "Starting noVNC on :${NOVNC_PORT}..."
-NOVNC_PATH=$(find /usr/share/novnc /usr/local/share/novnc \
-    -name "vnc.html" 2>/dev/null | head -1 | xargs -r dirname \
-    || echo "/usr/share/novnc")
+
+# TODO: Revisit this, as it finds 2 directories (same name) and includes a newline between
+#NOVNC_PATH=$(find /usr/share/novnc /usr/local/share/novnc \
+#    -name "vnc.html" -exec dirname '{}' \; 2>/dev/null | sort -u | head -1 \
+#    || echo "/usr/share/novnc")
+#
+NOVNC_PATH=/usr/share/novnc
 
 websockify \
     --web="${NOVNC_PATH}" \
     --wrap-mode=ignore \
     "0.0.0.0:${NOVNC_PORT}" \
     "localhost:${VNC_PORT}" \
-    > /tmp/novnc.log 2>&1 &
+    > /tmp/websocketify.log 2>&1 &
 NOVNC_PID=$!
 log "noVNC started (pid ${NOVNC_PID}). Connect at http://localhost:${NOVNC_PORT}"
 
@@ -272,12 +283,14 @@ log "  code-server: :8080  (uid ${CODER_USER}/$(id -u ${CODER_USER}))"
 log ""
 log "Use './manage.sh proxy-log' to watch the allowlist in action."
 
-tail -f \
+tail \
     /tmp/mitmproxy.log \
-    /tmp/novnc.log \
+    /tmp/vnc.log \
+    /tmp/openbox.log \
+    /tmp/websocketify.log \
     /tmp/code-server.log \
     /tmp/chromium.log \
-    2>/dev/null &
+    2>/dev/null
 
 # Container exits when noVNC exits
 wait "${NOVNC_PID}"

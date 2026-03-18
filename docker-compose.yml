@@ -6,10 +6,10 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: vscode-mitmproxy-sandbox
-    cap_drop:
-      #- ALL
+    #cap_drop:
+    #  - ALL
     cap_add:
-      #- NET_ADMIN
+      - NET_ADMIN
       #- NET_RAW
     security_opt:
       - no-new-privileges:true
@@ -27,13 +27,14 @@ services:
     restart: unless-stopped
     volumes:
       - ./sandbox:/home/coder/sandbox
-      - workspace_data:/home/coder/workspace
-      - vscode_extensions:/home/coder/.local/share/code-server/extensions
+      # TODO: Review and re-enable as needed
+      #- workspace_data:/home/coder/workspace
+      #- vscode_extensions:/home/coder/.local/share/code-server/extensions
       # Persist mitmproxy CA cert so Chromium's NSS trust stays
       # valid across container restarts without reinstalling the cert
-      - mitmproxy_ca:/opt/mitmproxy-ca
-      - ./scripts:/scripts:ro
-      - ./config:/config:ro
+      #- mitmproxy_ca:/opt/mitmproxy-ca
+      #- ./scripts:/scripts:ro
+      #- ./config:/config:ro
 
 volumes:
   workspace_data:

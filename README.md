@@ -4,6 +4,18 @@ VS Code in a browser, with all outbound HTTPS inspected by mitmproxy.
 Pixel-streamed to your host via noVNC — no JavaScript from inside the
 container executes on your host OS.
 
+## TODO
+
+Notes on issues and things to look-into:
+
+    - [ ] Fix `iptables` rules to route all coder user through proxy only.
+          (instead of non-coder)
+    - [ ] Address issue with chromium on ubuntu requiring snap.
+    - [ ] Pre-bake extensions into docker image?
+    - [ ] Run display services as non-root user?
+    - [ ] Re-visit the vnc path lookup in the entrypoint.sh as it has issues.
+    - [ ] Address issues with compose file volume mount permissions.
+
 ## Key fix in v2: mitmproxy runs as a dedicated 'mitm' user
 
 In v1, mitmproxy ran as the same `coder` user as VS Code. This created

@@ -48,6 +48,14 @@ ALLOW_RULES: list[tuple[str, str]] = [
     # Open VSX (code-server extension marketplace)
     ("open-vsx.org",                  "/"),
     ("api.open-vsx.org",              "/"),
+
+    # Extra Open VSX Extensions
+    ("openvsx.eclipsecontent.org", "/streetsidesoftware/code-spell-checker/"),
+    ("openvsx.eclipsecontent.org", "/Continue/continue/"),
+    ("openvsx.eclipsecontent.org", "/ms-python/"),
+    ("openvsx.eclipsecontent.org", "/esbenp/prettier-vscode/"),
+    ("openvsx.eclipsecontent.org", "/dbaeumer/vscode-eslint"),
+    ("openvsx.eclipsecontent.org", "/eamodio/gitlens/"),
 ]
 
 # Build an index for O(1) host lookup
