@@ -3,3 +3,5 @@
 *.swp
 *.swo
 
+# Input to the sandbox
+sandbox/

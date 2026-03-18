@@ -2,11 +2,15 @@ version: "3.9"
 
 services:
   vscode-sandbox:
-    image: vscode-mitmproxy-sandbox:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: vscode-mitmproxy-sandbox
+    cap_drop:
+      #- ALL
     cap_add:
-      - NET_ADMIN
-      - NET_RAW
+      #- NET_ADMIN
+      #- NET_RAW
     security_opt:
       - no-new-privileges:true
     ports:
@@ -22,6 +26,7 @@ services:
     shm_size: 512m
     restart: unless-stopped
     volumes:
+      - ./sandbox:/home/coder/sandbox
       - workspace_data:/home/coder/workspace
       - vscode_extensions:/home/coder/.local/share/code-server/extensions
       # Persist mitmproxy CA cert so Chromium's NSS trust stays
