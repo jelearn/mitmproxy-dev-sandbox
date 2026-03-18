@@ -34,15 +34,15 @@
 #   final              — configs, scripts, entrypoint (changes most often)
 #
 # Rebuild only the stages you need:
-#   docker build --target code-server-install ...  → rebuild code-server only
-#   docker build --target mitmproxy-install ...    → rebuild mitmproxy only
-#   docker build ...                               → full build (uses cache)
+#   podman build --target code-server-install ...  → rebuild code-server only
+#   podman build --target mitmproxy-install ...    → rebuild mitmproxy only
+#   podman build ...                               → full build (uses cache)
 #
 # Container naming:
-#   The image is named at build time:  docker build -t myname .
-#   The container is named at runtime: docker run --name mycontainer
-#   Or via docker-compose.yml:         container_name: vscode-mitmproxy-sandbox
-#   You cannot set a container name inside a Dockerfile — it is a
+#   The image is named at build time:  podman build -t myname .
+#   The container is named at runtime: podman run --name mycontainer
+#   Or via compose.yml:         container_name: mitmproxy-dev-sandbox
+#   You cannot set a container name inside a Containerfile — it is a
 #   runtime concept, not a build-time one.
 #
 # ARGs are declared in the stage that first uses them.
@@ -63,7 +63,7 @@ FROM ubuntu:24.04 AS base
 ARG DEBIAN_FRONTEND=noninteractive
 
 # User identity ARGs — override at build time if your host UIDs differ:
-#   docker build --build-arg CODER_UID=1100 --build-arg MITM_UID=1101 .
+#   podman build --build-arg CODER_UID=1100 --build-arg MITM_UID=1101 .
 ARG CODER_USER=coder
 ARG CODER_UID=1100
 ARG MITM_USER=mitm
@@ -200,7 +200,7 @@ RUN apt-get clean \
 FROM node-runtime AS code-server-install
 
 # Version ARGs — override at build time:
-#   docker build --build-arg CODE_SERVER_VERSION=4.96.0 .
+#   podman build --build-arg CODE_SERVER_VERSION=4.96.0 .
 ARG CODE_SERVER_VERSION=4.95.3
 ARG CLAUDE_CODE_VERSION=latest
 
@@ -269,7 +269,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 # ── mitmproxy allowlist ───────────────────────────────────────
 # Owned root, world-readable, not writable by service users.
-# Mounted read-only at runtime by docker-compose so the allowlist
+# Mounted read-only at runtime by podman compose so the allowlist
 # can be edited on the host and reloaded without a rebuild.
 RUN mkdir -p /etc/mitmproxy
 COPY config/mitmproxy/allowlist.py /etc/mitmproxy/allowlist.py
@@ -351,9 +351,9 @@ RUN mkdir -p /home/${MITM_USER}/.mitmproxy \
 EXPOSE 6080
 
 # ── Image labels ──────────────────────────────────────────────
-# Visible via: docker inspect <image> or docker image ls --format
-# Note: container_name is set in docker-compose.yml, not here.
-LABEL org.opencontainers.image.title="vscode-mitmproxy-sandbox" \
+# Visible via: podman inspect <image> or podman image ls --format
+# Note: container_name is set in compose.yml, not here.
+LABEL org.opencontainers.image.title="mitmproxy-dev-sandbox" \
       org.opencontainers.image.description="VS Code sandbox — code-server + Chromium + noVNC + mitmproxy allowlist" \
       org.opencontainers.image.version="2.0"
 

@@ -54,7 +54,7 @@ running as `coder`, and prints the full process list for inspection.
 You can also confirm manually:
 
 ```bash
-docker exec vscode-mitmproxy-sandbox \
+podman exec mitmproxy-dev-sandbox \
     ps -eo user,pid,comm | grep -E 'mitmdump|code-server|chromium'
 ```
 

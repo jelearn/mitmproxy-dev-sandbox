@@ -5,8 +5,8 @@
 
 set -euo pipefail
 
-CONTAINER="vscode-mitmproxy-sandbox"
-IMAGE="vscode-mitmproxy-sandbox:latest"
+CONTAINER="mitmproxy-dev-sandbox"
+IMAGE="mitmproxy-dev-sandbox:latest"
 URL="http://localhost:6080"
 
 BLU='\033[0;34m'; GRN='\033[0;32m'; YLW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
@@ -16,7 +16,7 @@ warn()  { echo -e "${YLW}[manage]${NC} $*"; }
 error() { echo -e "${RED}[manage]${NC} $*" >&2; exit 1; }
 
 require_running() {
-    docker ps --format '{{.Names}}' | grep -q "^${CONTAINER}$" \
+    podman ps --format '{{.Names}}' | grep -q "^${CONTAINER}$" \
         || error "Container not running. Run: ./manage.sh start"
 }
 
@@ -25,31 +25,31 @@ cmd="${1:-help}"
 case "${cmd}" in
     build)
         info "Building ${IMAGE}..."
-        docker build -t "${IMAGE}" .
+        podman build -t "${IMAGE}" .
         ok "Build complete."
         ;;
 
     start)
         [[ -f .env ]] || error "No .env file. Create one with ANTHROPIC_API_KEY=..."
-        docker-compose up -d
+        podman compose up -d
         sleep 3
         ok "noVNC at: ${URL}"
         ;;
 
-    stop)   docker-compose down;        ok "Stopped." ;;
-    restart) docker-compose down && docker-compose up -d; ok "Restarted. ${URL}" ;;
+    stop)   podman compose down;        ok "Stopped." ;;
+    restart) podman compose down && podman compose up -d; ok "Restarted. ${URL}" ;;
 
     status)
-        if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER}$"; then
+        if podman ps --format '{{.Names}}' | grep -q "^${CONTAINER}$"; then
             ok "RUNNING"
-            docker ps --filter "name=${CONTAINER}" \
+            podman ps --filter "name=${CONTAINER}" \
                 --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
             echo ""; info "noVNC: ${URL}"
 
             # Show which user each key process is running as
             echo ""
             info "Process user verification:"
-            docker exec "${CONTAINER}" \
+            podman exec "${CONTAINER}" \
                 ps -eo user,pid,comm \
                 | awk '$3~/mitmdump|code-server|chromium/{printf "  %-12s pid=%-6s %s\n",$1,$2,$3}'
         else
@@ -59,7 +59,7 @@ case "${cmd}" in
 
     logs)
         require_running
-        docker logs -f "${CONTAINER}"
+        podman logs -f "${CONTAINER}"
         ;;
 
     # ── Proxy commands ────────────────────────────────────────
@@ -67,7 +67,7 @@ case "${cmd}" in
     proxy-log)
         require_running
         info "Live proxy traffic (Ctrl-C to stop):"
-        docker exec "${CONTAINER}" \
+        podman exec "${CONTAINER}" \
             tail -f /tmp/mitmproxy.log \
             | grep --line-buffered -E '\[(ALLOWED|BLOCKED)\]'
         ;;
@@ -75,7 +75,7 @@ case "${cmd}" in
     blocked)
         require_running
         info "Recently blocked requests:"
-        docker exec "${CONTAINER}" \
+        podman exec "${CONTAINER}" \
             grep '\[BLOCKED\]' /tmp/mitmproxy.log | tail -50 \
             || info "None yet."
         ;;
@@ -83,7 +83,7 @@ case "${cmd}" in
     allowed)
         require_running
         info "Recently allowed requests:"
-        docker exec "${CONTAINER}" \
+        podman exec "${CONTAINER}" \
             grep '\[ALLOWED\]' /tmp/mitmproxy.log | tail -50 \
             || info "None yet."
         ;;
@@ -91,12 +91,12 @@ case "${cmd}" in
     reload-allowlist)
         require_running
         info "Copying updated allowlist into container..."
-        docker cp config/mitmproxy/allowlist.py \
+        podman cp config/mitmproxy/allowlist.py \
             "${CONTAINER}:/etc/mitmproxy/allowlist.py"
-        MITM_PID=$(docker exec "${CONTAINER}" \
+        MITM_PID=$(podman exec "${CONTAINER}" \
             cat /tmp/mitmproxy.pid 2>/dev/null || true)
         if [[ -n "${MITM_PID}" ]]; then
-            docker exec "${CONTAINER}" kill -HUP "${MITM_PID}"
+            podman exec "${CONTAINER}" kill -HUP "${MITM_PID}"
             ok "mitmproxy reloaded (pid ${MITM_PID})."
         else
             warn "mitmproxy PID not found — restart to reload."
@@ -108,14 +108,14 @@ case "${cmd}" in
         require_running
         info "Verifying process ownership..."
         echo ""
-        docker exec "${CONTAINER}" \
+        podman exec "${CONTAINER}" \
             ps -eo user,pid,ppid,comm,args \
             | grep -E 'USER|mitmdump|code-server|chromium|tigervnc|websockify|openbox'
         echo ""
 
-        MITM_USER=$(docker exec "${CONTAINER}" \
+        MITM_USER=$(podman exec "${CONTAINER}" \
             ps -eo user,comm | awk '$2=="mitmdump"{print $1}' | head -1)
-        CODER_CODESERVER=$(docker exec "${CONTAINER}" \
+        CODER_CODESERVER=$(podman exec "${CONTAINER}" \
             ps -eo user,comm | awk '$2=="code-server"{print $1}' | head -1)
 
         [[ "${MITM_USER}" == "mitm" ]] \
@@ -130,16 +130,16 @@ case "${cmd}" in
     firewall)
         require_running
         info "iptables nat OUTPUT (REDIRECT rules):"
-        docker exec "${CONTAINER}" iptables -t nat -L OUTPUT -n --line-numbers -v
+        podman exec "${CONTAINER}" iptables -t nat -L OUTPUT -n --line-numbers -v
         echo ""
         info "iptables filter OUTPUT:"
-        docker exec "${CONTAINER}" iptables -L OUTPUT -n --line-numbers -v
+        podman exec "${CONTAINER}" iptables -L OUTPUT -n --line-numbers -v
         ;;
 
     ca-cert)
         require_running
         info "Exporting mitmproxy CA cert to ./mitmproxy-sandbox-ca.pem"
-        docker exec "${CONTAINER}" cat /opt/mitmproxy-ca/mitmproxy-ca-cert.pem \
+        podman exec "${CONTAINER}" cat /opt/mitmproxy-ca/mitmproxy-ca-cert.pem \
             > ./mitmproxy-sandbox-ca.pem
         ok "Saved. Do NOT import this into your host browser trust store."
         ;;
@@ -149,19 +149,19 @@ case "${cmd}" in
     shell)
         require_running
         warn "Root shell in container."
-        docker exec -it "${CONTAINER}" /bin/bash
+        podman exec -it "${CONTAINER}" /bin/bash
         ;;
 
     coder-shell)
         require_running
         info "Shell as 'coder'..."
-        docker exec -it --user coder "${CONTAINER}" /bin/bash
+        podman exec -it --user coder "${CONTAINER}" /bin/bash
         ;;
 
     mitm-shell)
         require_running
         warn "Shell as 'mitm' user (proxy process owner)."
-        docker exec -it --user mitm "${CONTAINER}" /bin/bash
+        podman exec -it --user mitm "${CONTAINER}" /bin/bash
         ;;
 
     # ── Volume management ─────────────────────────────────────
@@ -169,8 +169,8 @@ case "${cmd}" in
     reset-workspace)
         warn "Deletes all workspace files."
         read -rp "Sure? [y/N] " c; [[ "${c,,}" == "y" ]] || exit 0
-        docker-compose down
-        docker volume rm "$(basename "$(pwd)")_workspace_data" 2>/dev/null || true
+        podman compose down
+        podman volume rm "$(basename "$(pwd)")_workspace_data" 2>/dev/null || true
         ok "Workspace removed."
         ;;
 
@@ -178,15 +178,15 @@ case "${cmd}" in
         warn "Deletes the mitmproxy CA cert volume."
         warn "A new CA is generated on next start and reinstalled into Chromium."
         read -rp "Sure? [y/N] " c; [[ "${c,,}" == "y" ]] || exit 0
-        docker-compose down
-        docker volume rm "$(basename "$(pwd}")_mitmproxy_ca" 2>/dev/null || true
+        podman compose down
+        podman volume rm "$(basename '$(pwd}')_mitmproxy_ca" 2>/dev/null || true
         ok "CA volume removed."
         ;;
 
     clean)
         warn "Removes container and image."
         read -rp "Sure? [y/N] " c; [[ "${c,,}" == "y" ]] || exit 0
-        docker-compose down --rmi all 2>/dev/null || true
+        podman compose down --rmi all 2>/dev/null || true
         ok "Cleaned."
         ;;
 
@@ -196,7 +196,7 @@ case "${cmd}" in
         echo ""
         echo "  ./manage.sh <command>"
         echo ""
-        printf "  %-22s %s\n" "build"            "Build the Docker image"
+        printf "  %-22s %s\n" "build"            "Build the podman image"
         printf "  %-22s %s\n" "start"            "Start the container"
         printf "  %-22s %s\n" "stop / restart"   "Stop or restart"
         printf "  %-22s %s\n" "status"           "Status + process user summary"

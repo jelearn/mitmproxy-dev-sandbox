@@ -1,11 +1,11 @@
 version: "3.9"
 
 services:
-  vscode-sandbox:
+  composed-sandbox:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: vscode-mitmproxy-sandbox
+      dockerfile: Containerfile
+    container_name: mitmproxy-dev-sandbox
     #cap_drop:
     #  - ALL
     cap_add:

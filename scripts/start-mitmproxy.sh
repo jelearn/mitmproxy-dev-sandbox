@@ -6,7 +6,7 @@
 # Can also be called manually to restart mitmproxy without
 # restarting the whole container:
 #
-#   docker exec vscode-mitmproxy-sandbox /scripts/start-mitmproxy.sh
+#   podman exec mitmproxy-dev-sandbox /scripts/start-mitmproxy.sh
 #
 # Must be run as root (it uses runuser to drop to mitm).
 # =============================================================
