@@ -1,0 +1,39 @@
+{
+  "models": [
+    {
+      "title": "Claude Sonnet 4.5",
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-5",
+      "apiKey": "$ANTHROPIC_API_KEY",
+      "contextLength": 200000
+    },
+    {
+      "title": "Claude Opus 4.5",
+      "provider": "anthropic",
+      "model": "claude-opus-4-5",
+      "apiKey": "$ANTHROPIC_API_KEY",
+      "contextLength": 200000
+    }
+  ],
+  "tabAutocompleteModel": {
+    "title": "Claude Haiku",
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5-20251001",
+    "apiKey": "$ANTHROPIC_API_KEY"
+  },
+  "contextProviders": [
+    { "name": "code",     "params": {} },
+    { "name": "diff",     "params": {} },
+    { "name": "terminal", "params": {} },
+    { "name": "problems", "params": {} },
+    { "name": "folder",   "params": {} },
+    { "name": "codebase", "params": {} }
+  ],
+  "slashCommands": [
+    { "name": "edit",    "description": "Edit selected code" },
+    { "name": "comment", "description": "Write comments for selected code" },
+    { "name": "cmd",     "description": "Generate a shell command" },
+    { "name": "commit",  "description": "Generate a git commit message" }
+  ],
+  "allowAnonymousTelemetry": false
+}

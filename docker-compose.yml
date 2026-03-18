@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  vscode-sandbox:
+    image: vscode-mitmproxy-sandbox:latest
+    container_name: vscode-mitmproxy-sandbox
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "127.0.0.1:6080:6080"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:?Set ANTHROPIC_API_KEY in .env}
+      - VNC_PASSWORD=${VNC_PASSWORD:-}
+      - SCREEN_RESOLUTION=${SCREEN_RESOLUTION:-1600x900x24}
+      - GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME:-Developer}
+      - GIT_AUTHOR_EMAIL=${GIT_AUTHOR_EMAIL:-dev@sandbox.local}
+    mem_limit: 4g
+    cpus: "4.0"
+    shm_size: 512m
+    restart: unless-stopped
+    volumes:
+      - workspace_data:/home/coder/workspace
+      - vscode_extensions:/home/coder/.local/share/code-server/extensions
+      # Persist mitmproxy CA cert so Chromium's NSS trust stays
+      # valid across container restarts without reinstalling the cert
+      - mitmproxy_ca:/opt/mitmproxy-ca
+      - ./scripts:/scripts:ro
+      - ./config:/config:ro
+
+volumes:
+  workspace_data:
+  vscode_extensions:
+  mitmproxy_ca:
