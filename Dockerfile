@@ -1,6 +1,16 @@
 # ============================================================
-# VS Code + mitmproxy Sandbox  (v2 — corrected user separation)
+# VS Code + mitmproxy Sandbox
 # Base: Ubuntu 24.04
+#
+# Architecture:
+#   User separation between coder and mitmproxy.
+#   Multi-stage image build.
+#   noVNC (pixels only) → Xtigervnc → Openbox → Chromium → code-server
+#   All outbound :443 → iptables REDIRECT → mitmproxy (mitm uid)
+#                                               ↓
+#                                       allowlist.py (Python)
+#                                               ↓
+#                                    real upstream server (if allowed)
 #
 # Users:
 #   coder  (uid 1000) — runs code-server, Chromium, Claude Code,
@@ -14,147 +24,322 @@
 #                       outbound HTTPS connections. Cannot sudo.
 #                       Cannot write to the workspace.
 #
-# Architecture:
-#   noVNC (pixels only) → Xtigervnc → Openbox → Chromium → code-server
-#   All outbound :443 → iptables REDIRECT → mitmproxy (mitm uid)
-#                                               ↓
-#                                       allowlist.py (Python)
-#                                               ↓
-#                                    real upstream server (if allowed)
+# Multi-stage Stages (each has its own cache layer):
+#
+#   base               — Ubuntu 24.04 + OS packages + users
+#   node-runtime       — Node.js 20 LTS (built on top of base)
+#   code-server-install— code-server .deb + Claude Code CLI
+#   mitmproxy-install  — Python venv + mitmproxy (independent of node)
+#   display-stack      — Xtigervnc + Openbox + noVNC + Chromium
+#   final              — configs, scripts, entrypoint (changes most often)
+#
+# Rebuild only the stages you need:
+#   docker build --target code-server-install ...  → rebuild code-server only
+#   docker build --target mitmproxy-install ...    → rebuild mitmproxy only
+#   docker build ...                               → full build (uses cache)
+#
+# Container naming:
+#   The image is named at build time:  docker build -t myname .
+#   The container is named at runtime: docker run --name mycontainer
+#   Or via docker-compose.yml:         container_name: vscode-mitmproxy-sandbox
+#   You cannot set a container name inside a Dockerfile — it is a
+#   runtime concept, not a build-time one.
+#
+# ARGs are declared in the stage that first uses them.
+# ARGs do not persist across stages unless re-declared.
 # ============================================================
 
-FROM ubuntu:24.04
 
-LABEL description="VS Code sandbox — code-server + Chromium + noVNC + mitmproxy (separate mitm user)"
+# ════════════════════════════════════════════════════════════
+# STAGE 1 — base
+#
+# Installs all OS-level packages, creates the three users
+# (main is the host user — not created here), and sets up the
+#
+# Rebuild trigger: OS package list changes, user UID changes.
+# ════════════════════════════════════════════════════════════
+FROM ubuntu:24.04 AS base
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-# UIDs are defined as build args so they can be overridden if needed
-ARG CODER_UID=1000
-ARG MITM_UID=1001
+# User identity ARGs — override at build time if your host UIDs differ:
+#   docker build --build-arg CODER_UID=1100 --build-arg MITM_UID=1101 .
 ARG CODER_USER=coder
+ARG CODER_UID=1100
 ARG MITM_USER=mitm
+ARG MITM_UID=1101
 
-# ── System packages ──────────────────────────────────────────
+# Persist user names as ENV so downstream stages can reference them
+# without re-declaring the ARGs (ARGs do not cross stage boundaries).
+ENV CODER_USER=${CODER_USER} \
+    CODER_UID=${CODER_UID} \
+    MITM_USER=${MITM_USER} \
+    MITM_UID=${MITM_UID}
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Virtual display + window manager + noVNC
-    tigervnc-standalone-server \
-    tigervnc-common \
-    openbox \
-    novnc \
-    websockify \
-    # In-container browser (renders code-server UI inside container)
-    chromium-browser \
-    # Fonts
-    fonts-liberation \
-    fonts-dejavu-core \
-    fonts-noto \
-    # dbus (Chromium needs it)
-    dbus-x11 \
-    # Python + venv (for mitmproxy)
+    # Certificates and basic network tools (needed by later stages)
+    ca-certificates \
+    curl \
+    wget \
+    # Python runtime (for mitmproxy stage)
     python3 \
     python3-pip \
     python3-venv \
+    # Certificate tooling for Chromium NSS database
+    libnss3-tools \
+    openssl \
     # Network / firewall
     iptables \
     iproute2 \
     dnsutils \
     iputils-ping \
-    ca-certificates \
-    curl \
-    wget \
-    # Certificate tooling (certutil for Chromium NSS DB)
-    openssl \
-    libnss3-tools \
-    # Build tools + runtimes
+    # Build tools (required by some npm packages)
     git \
     build-essential \
+    # PAM (for access.conf /mnt restriction)
+    libpam-modules \
+    # ACL tools (setfacl for /mnt restriction)
+    acl \
     # Misc
-    xterm \
     jq \
+    xterm \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# ── Node.js 20 LTS ───────────────────────────────────────────
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+# ── Create service users ──────────────────────────────────────
+# coder: unprivileged, real home, bash shell (VS Code terminals need it)
+RUN useradd \
+        --uid "${CODER_UID}" \
+        --create-home \
+        --home-dir "/home/${CODER_USER}" \
+        --shell /bin/bash \
+        --comment "VS Code sandbox user — no sudo" \
+        "${CODER_USER}" \
+    && useradd \
+        --uid "${MITM_UID}" \
+        --create-home \
+        --home-dir "/home/${MITM_USER}" \
+        --shell /usr/sbin/nologin \
+        --comment "mitmproxy service account — no sudo, no login" \
+        "${MITM_USER}" \
+    && deluser "${CODER_USER}" sudo 2>/dev/null || true \
+    && deluser "${MITM_USER}"  sudo 2>/dev/null || true
+
+# ── Shared CA cert directory ──────────────────────────────────
+RUN mkdir -p /opt/mitmproxy-ca \
+    && chown "${MITM_USER}:${MITM_USER}" /opt/mitmproxy-ca \
+    && chmod 755 /opt/mitmproxy-ca
+
+# ════════════════════════════════════════════════════════════
+# STAGE 2 — node-runtime
+#
+# Installs Node.js 20 LTS via NodeSource on top of base.
+# Kept as its own stage so a Node version bump only invalidates
+# this layer and everything downstream — not the OS packages.
+#
+# Rebuild trigger: NODE_MAJOR changes.
+# ════════════════════════════════════════════════════════════
+FROM base AS node-runtime
+
+ARG NODE_MAJOR=20
+
+RUN curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - \
     && apt-get install -y nodejs \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# ── code-server ───────────────────────────────────────────────
+
+# ════════════════════════════════════════════════════════════
+# STAGE 3a — code-server-install
+#
+# Installs code-server and Claude Code CLI.
+# Independent of the mitmproxy stage — changing CODE_SERVER_VERSION
+# does not touch the mitmproxy venv, and vice versa.
+#
+# Rebuild trigger: CODE_SERVER_VERSION or CLAUDE_CODE_VERSION changes.
+# ════════════════════════════════════════════════════════════
+FROM node-runtime AS code-server-install
+
+# Version ARGs — override at build time:
+#   docker build --build-arg CODE_SERVER_VERSION=4.96.0 .
 ARG CODE_SERVER_VERSION=4.95.3
+ARG CLAUDE_CODE_VERSION=latest
+
 RUN curl -fsSL \
     "https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server_${CODE_SERVER_VERSION}_amd64.deb" \
     -o /tmp/code-server.deb \
     && dpkg -i /tmp/code-server.deb \
-    && rm /tmp/code-server.deb
+    && rm /tmp/code-server.deb \
+    && apt-get install -f -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# ── Claude Code CLI ───────────────────────────────────────────
-RUN npm install -g @anthropic-ai/claude-code
+RUN if [ "${CLAUDE_CODE_VERSION}" = "latest" ]; then \
+        npm install -g @anthropic-ai/claude-code; \
+    else \
+        npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"; \
+    fi
 
-# ── mitmproxy (in its own venv, owned by the mitm user later) ─
+
+# ════════════════════════════════════════════════════════════
+# STAGE 3b — mitmproxy-install
+#
+# Installs mitmproxy in an isolated Python venv.
+# Branches from node-runtime (not code-server-install) so this
+# stage is completely independent — rebuilding it never touches
+# the code-server layer.
+#
+# Rebuild trigger: MITMPROXY_VERSION changes.
+# ════════════════════════════════════════════════════════════
+FROM node-runtime AS mitmproxy-install
+
+ARG MITMPROXY_VERSION=10.3.1
+
 RUN python3 -m venv /opt/mitmproxy-venv \
-    && /opt/mitmproxy-venv/bin/pip install --no-cache-dir mitmproxy
+    && /opt/mitmproxy-venv/bin/pip install \
+        --no-cache-dir \
+        "mitmproxy==${MITMPROXY_VERSION}"
 
-# ── Create users ──────────────────────────────────────────────
-# coder: the developer user — no sudo, no special network caps
-RUN useradd -m -u ${CODER_UID} -s /bin/bash ${CODER_USER}
+# Lock venv ownership to mitm and remove execute permission for others.
+# ENV carries MITM_USER from the base stage.
+RUN chown -R "${MITM_USER}:${MITM_USER}" /opt/mitmproxy-venv \
+    && chmod -R o-x /opt/mitmproxy-venv/bin
 
-# mitm: runs mitmproxy only — no login shell, no home dir access
-# to the workspace, no sudo. The --no-create-home flag keeps it
-# minimal; we create just the .mitmproxy config dir below.
-RUN useradd -m -u ${MITM_UID} -s /usr/sbin/nologin ${MITM_USER}
 
-# ── Shared CA cert directory ──────────────────────────────────
-# mitmproxy writes its CA cert here; coder reads it to configure
-# Node.js and Chromium trust. World-readable dir, cert is 644.
-RUN mkdir -p /opt/mitmproxy-ca \
-    && chown ${MITM_USER}:${MITM_USER} /opt/mitmproxy-ca \
-    && chmod 755 /opt/mitmproxy-ca
+# ════════════════════════════════════════════════════════════
+# STAGE 4 — display-stack
+#
+# Installs the virtual display, window manager, noVNC bridge,
+# and in-container browser. These change very infrequently and
+# are expensive to install, so they get their own stage.
+#
+# Merges outputs from code-server-install and mitmproxy-install.
+#
+# Rebuild trigger: display package versions or Chromium changes.
+# ════════════════════════════════════════════════════════════
+FROM code-server-install AS display-stack
 
-# Lock down the mitmproxy venv so only mitm can execute it
-RUN chown -R ${MITM_USER}:${MITM_USER} /opt/mitmproxy-venv
+ARG DEBIAN_FRONTEND=noninteractive
 
-# ── coder user directory structure ───────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tigervnc-standalone-server \
+    tigervnc-common \
+    openbox \
+    novnc \
+    websockify \
+    chromium-browser \
+    fonts-liberation \
+    fonts-dejavu-core \
+    fonts-noto \
+    dbus-x11 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Merge: copy the mitmproxy venv from its independent build stage.
+# This is the point where both parallel build paths converge.
+COPY --from=mitmproxy-install /opt/mitmproxy-venv /opt/mitmproxy-venv
+
+
+# ════════════════════════════════════════════════════════════
+# STAGE 5 — final
+#
+# The thinnest and most frequently changed stage.
+# Copies in scripts and configs, sets up user home directories,
+# and defines the entrypoint.
+#
+# Editing a script or config only re-runs this layer —
+# none of the expensive install stages above are touched.
+#
+# Rebuild trigger: any script, config, or ARG below changes.
+# ════════════════════════════════════════════════════════════
+FROM display-stack AS final
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# ── mitmproxy allowlist ───────────────────────────────────────
+# Owned root, world-readable, not writable by service users.
+# Mounted read-only at runtime by docker-compose so the allowlist
+# can be edited on the host and reloaded without a rebuild.
+RUN mkdir -p /etc/mitmproxy
+COPY config/mitmproxy/allowlist.py /etc/mitmproxy/allowlist.py
+RUN chown root:root /etc/mitmproxy/allowlist.py \
+    && chmod 644 /etc/mitmproxy/allowlist.py
+
+# ── Runtime scripts ───────────────────────────────────────────
+COPY scripts/entrypoint.sh           /scripts/entrypoint.sh
+COPY scripts/firewall.sh             /scripts/firewall.sh
+COPY scripts/install-extensions.sh  /scripts/install-extensions.sh
+COPY scripts/launch-chromium.sh     /scripts/launch-chromium.sh
+COPY scripts/start-mitmproxy.sh     /scripts/start-mitmproxy.sh
+RUN chmod +x \
+        /scripts/entrypoint.sh \
+        /scripts/firewall.sh \
+        /scripts/install-extensions.sh \
+        /scripts/launch-chromium.sh \
+        /scripts/start-mitmproxy.sh
+
+# ── coder home directories and configs ───────────────────────
 RUN mkdir -p \
         /home/${CODER_USER}/workspace \
         /home/${CODER_USER}/.vnc \
         /home/${CODER_USER}/.config/code-server \
         /home/${CODER_USER}/.local/share/code-server/User \
+        /home/${CODER_USER}/.local/share/code-server/extensions \
         /home/${CODER_USER}/.continue \
         /home/${CODER_USER}/.pki/nssdb \
         /home/${CODER_USER}/.profile.d \
     && chown -R ${CODER_USER}:${CODER_USER} /home/${CODER_USER}
 
-# ── Copy scripts and configs ──────────────────────────────────
-COPY scripts/entrypoint.sh             /scripts/entrypoint.sh
-COPY scripts/firewall.sh               /scripts/firewall.sh
-COPY scripts/start-mitmproxy.sh        /scripts/start-mitmproxy.sh
-COPY scripts/install-extensions.sh    /scripts/install-extensions.sh
-COPY scripts/launch-chromium.sh       /scripts/launch-chromium.sh
-COPY config/mitmproxy/allowlist.py    /etc/mitmproxy/allowlist.py
-COPY config/code-server.yaml          /home/${CODER_USER}/.config/code-server/config.yaml
-COPY config/vscode/settings.json      /home/${CODER_USER}/.local/share/code-server/User/settings.json
-COPY config/continue/config.json      /home/${CODER_USER}/.continue/config.json
+COPY config/vscode/settings.json \
+    /home/${CODER_USER}/.local/share/code-server/User/settings.json
+COPY config/continue/config.json \
+    /home/${CODER_USER}/.continue/config.json
 
-RUN chmod +x \
-        /scripts/entrypoint.sh \
-        /scripts/firewall.sh \
-        /scripts/start-mitmproxy.sh \
-        /scripts/install-extensions.sh \
-        /scripts/launch-chromium.sh \
-    && chown -R ${CODER_USER}:${CODER_USER} \
-        /home/${CODER_USER}/.config \
-        /home/${CODER_USER}/.local \
-        /home/${CODER_USER}/.continue \
-    # allowlist is owned by root/read-only to prevent tampering
-    && chown root:root /etc/mitmproxy/allowlist.py \
-    && chmod 644 /etc/mitmproxy/allowlist.py
+RUN chown ${CODER_USER}:${CODER_USER} \
+        /home/${CODER_USER}/.local/share/code-server/User/settings.json \
+        /home/${CODER_USER}/.continue/config.json
 
-# ── Expose only the noVNC port ────────────────────────────────
-# 6080 = noVNC pixel stream (the only port the host needs)
-# 8080 = code-server (internal, Chromium connects on loopback)
-# 8081 = mitmproxy  (internal, iptables redirects here)
+# code-server config (auth none — Chromium is inside the container)
+RUN printf 'bind-addr: 127.0.0.1:8080\nauth: none\ncert: false\n' \
+        > /home/${CODER_USER}/.config/code-server/config.yaml \
+    && chown ${CODER_USER}:${CODER_USER} \
+        /home/${CODER_USER}/.config/code-server/config.yaml
+
+# Runtime env placeholder — populated by entrypoint.sh, cleared on stop
+RUN printf '# Populated at container start by entrypoint.sh\n' \
+        > /home/${CODER_USER}/.profile.d/sandbox-env.sh \
+    && chmod 600 /home/${CODER_USER}/.profile.d/sandbox-env.sh \
+    && chown ${CODER_USER}:${CODER_USER} \
+        /home/${CODER_USER}/.profile.d/sandbox-env.sh
+
+# .bashrc: source env + /mnt shell guard
+RUN printf 'source ~/.profile.d/sandbox-env.sh 2>/dev/null || true\n' \
+        >> /home/${CODER_USER}/.bashrc \
+    && printf '\n# Sandbox: block navigation to Windows drives\n' \
+        >> /home/${CODER_USER}/.bashrc \
+    && printf 'function cd() {\n' \
+        >> /home/${CODER_USER}/.bashrc \
+    && printf '    case "$1" in /mnt*|/mnt) echo "[sandbox] /mnt is restricted." >&2; return 1 ;; esac\n' \
+        >> /home/${CODER_USER}/.bashrc \
+    && printf '    builtin cd "$@"\n}\n' \
+        >> /home/${CODER_USER}/.bashrc \
+    && chown ${CODER_USER}:${CODER_USER} /home/${CODER_USER}/.bashrc
+
+# ── mitm config directory ─────────────────────────────────────
+RUN mkdir -p /home/${MITM_USER}/.mitmproxy \
+    && chown -R ${MITM_USER}:${MITM_USER} /home/${MITM_USER}/.mitmproxy \
+    && chmod 700 /home/${MITM_USER}/.mitmproxy
+
+# ── Port ──────────────────────────────────────────────────────
+# Only the noVNC pixel-stream port is exposed to the host.
+# code-server (:8080) and mitmproxy (:8081) are internal only.
 EXPOSE 6080
+
+# ── Image labels ──────────────────────────────────────────────
+# Visible via: docker inspect <image> or docker image ls --format
+# Note: container_name is set in docker-compose.yml, not here.
+LABEL org.opencontainers.image.title="vscode-mitmproxy-sandbox" \
+      org.opencontainers.image.description="VS Code sandbox — code-server + Chromium + noVNC + mitmproxy allowlist" \
+      org.opencontainers.image.version="2.0"
 
 ENTRYPOINT ["/scripts/entrypoint.sh"]
