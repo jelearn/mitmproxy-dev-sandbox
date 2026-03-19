@@ -155,7 +155,7 @@ case "${cmd}" in
     coder-shell)
         require_running
         info "Shell as 'coder'..."
-        podman exec -it --user coder "${CONTAINER}" /bin/bash
+        podman exec -it --user coder "${CONTAINER}" /bin/bash -l -c "cd ~/workspace; bash"
         ;;
 
     claude)
