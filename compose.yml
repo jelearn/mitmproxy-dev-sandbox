@@ -21,9 +21,9 @@ services:
       - SCREEN_RESOLUTION=${SCREEN_RESOLUTION:-1600x900x24}
       - GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME:-Developer}
       - GIT_AUTHOR_EMAIL=${GIT_AUTHOR_EMAIL:-dev@sandbox.local}
-    mem_limit: 4g
+    mem_limit: 8g
     cpus: "4.0"
-    shm_size: 512m
+    shm_size: 1g
     restart: unless-stopped
     volumes:
       # TODO: Investigate if the workspace can come from
