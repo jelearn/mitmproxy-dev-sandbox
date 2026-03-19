@@ -161,7 +161,7 @@ case "${cmd}" in
     claude)
         require_running
         info "Running claude as 'coder'..."
-        podman exec -it --user coder "${CONTAINER}" /bin/bash -l -c "cd ~/workspace && claude"
+        podman exec -it --user coder "${CONTAINER}" /bin/bash -l -c "cd ~/workspace && claude --resume"
         ;;
 
     mitm-shell)
