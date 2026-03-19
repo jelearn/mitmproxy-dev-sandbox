@@ -14,9 +14,11 @@ Notes on issues and things to look-into:
           normal system certs.
     - [ ] Fix `iptables` rules to route all coder user through proxy only.
           (instead of non-coder)
-    - [ ] Update the compose to have /home/coder/.claude/.credentials.json
+    - [X] Update the compose to have /home/coder/.claude/.credentials.json
           as an external read/write directory on the host OS.
-        - [ ] Also potentially consider: ~/.claude.json
+          (DONE: via compose.yml volumes)
+        - [X] Also potentially consider: ~/.claude.json
+            (DONE: via scripts/entrypoint.sh modifications to point to claude_ai volume)
         - [ ] Also clean-up references to the API key and .env, as they don't seem to be used.
     - [ ] Generate the mitmproxy cert once, outside the image and import it.
     - [ ] Address issue with chromium on ubuntu requiring snap.

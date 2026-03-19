@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================
-# entrypoint.sh — VS Code + mitmproxy sandbox startup
+# entrypoint.sh — mitmproxy dev sandbox startup
 #
 # Runs as root. Drops to the appropriate user for each service:
 #
@@ -55,6 +55,18 @@ error() { echo "[entrypoint] ERROR: $*" >&2; bash; exit 1; }
 [[ -z "${ANTHROPIC_API_KEY:-}" ]] && \
     error "ANTHROPIC_API_KEY is not set. Add it to your .env file."
 log "API key present (${#ANTHROPIC_API_KEY} chars)."
+
+# TODO: Revisit, this is an attempt to persist more settings
+log "Initializing .claude.json on first run, or linking to existing..."
+if [[ ! -f "/home/${CODER_USER}/.claude/claude.json" ]]; then
+    log "Moving default .claude.json"
+    mv /home/${CODER_USER}/.claude.json /home/${CODER_USER}/.claude/claude.json
+else
+    log "Deleting default .claude.json"
+    rm /home/${CODER_USER}/.claude.json
+fi
+ln -s /home/${CODER_USER}/.claude/claude.json /home/${CODER_USER}/.claude.json
+chown ${CODER_USER}:${CODER_USER} /home/${CODER_USER}/.claude.json /home/${CODER_USER}/.claude/claude.json
 
 # ── Step 2: Start mitmproxy as 'mitm' ─────────────────────────
 # mitm is a no-login user (shell: /usr/sbin/nologin), so we use

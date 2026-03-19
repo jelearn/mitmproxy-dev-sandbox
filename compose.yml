@@ -30,6 +30,7 @@ services:
       # the local file system in ./sandbox
       - workspace_data:/home/coder/workspace
       - vscode_extensions:/home/coder/.local/share/code-server/extensions
+      - claude_ai:/home/coder/.claude
       # Persist mitmproxy CA cert so Chromium's NSS trust stays
       # valid across container restarts without reinstalling the cert
       - mitmproxy_ca:/opt/mitmproxy-ca
@@ -38,3 +39,4 @@ volumes:
   workspace_data:
   vscode_extensions:
   mitmproxy_ca:
+  claude_ai:
