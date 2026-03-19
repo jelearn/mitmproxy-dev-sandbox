@@ -8,8 +8,17 @@ container executes on your host OS.
 
 Notes on issues and things to look-into:
 
+    - [ ] Address host to guest OS permissions mounting limitations.
+    - [ ] Fix entrypoint.sh, which should call per-service scripts, but doesn't.
+    - [ ] Update mitmproxy to not include its own self-signed cert and only trust
+          normal system certs.
     - [ ] Fix `iptables` rules to route all coder user through proxy only.
           (instead of non-coder)
+    - [ ] Update the compose to have /home/coder/.claude/.credentials.json
+          as an external read/write directory on the host OS.
+        - [ ] Also potentially consider: ~/.claude.json
+        - [ ] Also clean-up references to the API key and .env, as they don't seem to be used.
+    - [ ] Generate the mitmproxy cert once, outside the image and import it.
     - [ ] Address issue with chromium on ubuntu requiring snap.
     - [ ] Pre-bake extensions into docker image?
     - [ ] Run display services as non-root user?

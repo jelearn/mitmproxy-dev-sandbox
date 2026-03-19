@@ -158,6 +158,12 @@ case "${cmd}" in
         podman exec -it --user coder "${CONTAINER}" /bin/bash
         ;;
 
+    claude)
+        require_running
+        info "Running claude as 'coder'..."
+        podman exec -it --user coder "${CONTAINER}" /bin/bash -l -c "cd ~/workspace && claude"
+        ;;
+
     mitm-shell)
         require_running
         warn "Shell as 'mitm' user (proxy process owner)."
@@ -192,9 +198,9 @@ case "${cmd}" in
 
     help|*)
         echo ""
-        echo "VS Code + mitmproxy Sandbox (v2 — separate mitm user)"
+        echo "Managment utility for the mitmproxy development Sandbox"
         echo ""
-        echo "  ./manage.sh <command>"
+        echo "  $(basename $0) <command>"
         echo ""
         printf "  %-22s %s\n" "build"            "Build the podman image"
         printf "  %-22s %s\n" "start"            "Start the container"
@@ -211,6 +217,7 @@ case "${cmd}" in
         printf "  %-22s %s\n" "ca-cert"          "Export CA cert to host (inspect only)"
         echo ""
         printf "  %-22s %s\n" "shell"            "Root shell"
+        printf "  %-22s %s\n" "claude"           "Run Claude Code as coder"
         printf "  %-22s %s\n" "coder-shell"      "Shell as coder"
         printf "  %-22s %s\n" "mitm-shell"       "Shell as mitm"
         printf "  %-22s %s\n" "reset-workspace"  "Delete workspace volume"

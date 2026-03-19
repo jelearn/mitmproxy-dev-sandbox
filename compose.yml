@@ -26,15 +26,13 @@ services:
     shm_size: 512m
     restart: unless-stopped
     volumes:
-      - ./sandbox:/home/coder/sandbox
-      # TODO: Review and re-enable as needed
-      #- workspace_data:/home/coder/workspace
-      #- vscode_extensions:/home/coder/.local/share/code-server/extensions
+      # TODO: Investigate if the workspace can come from
+      # the local file system in ./sandbox
+      - workspace_data:/home/coder/workspace
+      - vscode_extensions:/home/coder/.local/share/code-server/extensions
       # Persist mitmproxy CA cert so Chromium's NSS trust stays
       # valid across container restarts without reinstalling the cert
-      #- mitmproxy_ca:/opt/mitmproxy-ca
-      #- ./scripts:/scripts:ro
-      #- ./config:/config:ro
+      - mitmproxy_ca:/opt/mitmproxy-ca
 
 volumes:
   workspace_data:

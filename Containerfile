@@ -109,7 +109,9 @@ RUN apt-get install -y --no-install-recommends \
     # Misc
     jq \
     xterm \
-    less
+    less \
+    vim \
+    tmux
 
 # ════════════════════════════════════════════════════════════
 # display-stack
@@ -217,12 +219,7 @@ RUN apt-get clean \
     && apt autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
-RUN if [ "${CLAUDE_CODE_VERSION}" = "latest" ]; then \
-        npm install -g @anthropic-ai/claude-code; \
-    else \
-        npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"; \
-    fi
-
+RUN runuser -u "${CODER_USER}" -- /bin/bash -c "cd /home/${CODER_USER}/ && curl -fsSL https://claude.ai/install.sh | bash"
 
 # ════════════════════════════════════════════════════════════
 # STAGE 3b — mitmproxy-install
@@ -339,6 +336,8 @@ RUN printf 'source ~/.profile.d/sandbox-env.sh 2>/dev/null || true\n' \
     && printf '    builtin cd "$@"\n}\n' \
         >> /home/${CODER_USER}/.bashrc \
     && chown ${CODER_USER}:${CODER_USER} /home/${CODER_USER}/.bashrc
+
+RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/${CODER_USER}/.bashrc
 
 # ── mitm config directory ─────────────────────────────────────
 RUN mkdir -p /home/${MITM_USER}/.mitmproxy \

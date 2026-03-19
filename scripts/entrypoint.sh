@@ -26,6 +26,8 @@
 
 set -euo pipefail
 
+BASE_DIR=$(dirname $0)
+
 CODER_USER="coder"
 MITM_USER="mitm"
 DISPLAY_NUM=":1"
@@ -50,36 +52,14 @@ log()   { echo "[entrypoint] $(date '+%H:%M:%S') $*"; }
 error() { echo "[entrypoint] ERROR: $*" >&2; bash; exit 1; }
 
 # ── Step 1: Validate API key ──────────────────────────────────
-#[[ -z "${ANTHROPIC_API_KEY:-}" ]] && \
-#    error "ANTHROPIC_API_KEY is not set. Add it to your .env file."
-ANTHROPIC_API_KEY="ignore"
+[[ -z "${ANTHROPIC_API_KEY:-}" ]] && \
+    error "ANTHROPIC_API_KEY is not set. Add it to your .env file."
 log "API key present (${#ANTHROPIC_API_KEY} chars)."
 
 # ── Step 2: Start mitmproxy as 'mitm' ─────────────────────────
 # mitm is a no-login user (shell: /usr/sbin/nologin), so we use
 # runuser -s /bin/bash to give it a temporary shell for this call.
-log "Starting mitmproxy as '${MITM_USER}' (uid $(id -u ${MITM_USER}))..."
-
-mkdir -p "${MITM_CONF_DIR}"
-chown "${MITM_USER}:${MITM_USER}" "${MITM_CONF_DIR}"
-
-# Symlink so mitmproxy writes its CA cert into the shared dir
-# instead of its conf dir, making it easier for coder to find.
-ln -sf "${MITM_CA_DIR}" "${MITM_CONF_DIR}/ca-export" 2>/dev/null || true
-
-runuser -u "${MITM_USER}" -- /bin/bash -c "
-    /opt/mitmproxy-venv/bin/mitmdump \
-        --mode transparent \
-        --listen-host 0.0.0.0 \
-        --listen-port ${MITM_PORT} \
-        --set confdir=${MITM_CONF_DIR} \
-        --set ssl_verify_upstream_trusted_confdir=/etc/ssl/certs \
-        --scripts /etc/mitmproxy/allowlist.py \
-        > /tmp/mitmproxy.log 2>&1 &
-    echo \$! > /tmp/mitmproxy.pid
-"
-
-log "mitmproxy started (pid $(cat /tmp/mitmproxy.pid))."
+${BASE_DIR}/start-mitmproxy.sh "${MITM_USER}" "${MITM_PORT}" "${MITM_CONF_DIR}" "${MITM_CA_DIR}"
 
 # ── Step 3: Wait for CA cert ──────────────────────────────────
 # mitmproxy generates its CA on first connection, not on startup.

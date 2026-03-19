@@ -26,8 +26,12 @@ from mitmproxy import http
 ALLOW_RULES: list[tuple[str, str]] = [
 
     # Anthropic API — Continue.dev and Claude Code CLI
+    ("api.anthropic.com",             "/api/"),
     ("api.anthropic.com",             "/v1/"),
+    ("platform.claude.com",           "/v1/"),
     ("statsig.anthropic.com",         "/v1/"),
+    # Telemitry:
+    #("http-intake.logs.us5.datadoghq.com", "/api/v2/logs"),
 
     # npm
     ("registry.npmjs.org",            "/"),

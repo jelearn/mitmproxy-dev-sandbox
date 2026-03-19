@@ -13,12 +13,26 @@
 
 set -euo pipefail
 
-MITM_USER="mitm"
-MITM_PORT=8081
-MITM_CONF_DIR="/home/${MITM_USER}/.mitmproxy"
-MITM_CA_DIR="/opt/mitmproxy-ca"
+#MITM_USER="mitm"
+MITM_USER=$1
+#MITM_PORT=8081
+MITM_PORT=$2
+#MITM_CONF_DIR="/home/${MITM_USER}/.mitmproxy"
+MITM_CONF_DIR=$3
+#MITM_CA_DIR="/opt/mitmproxy-ca"
+MITM_CA_DIR=$4
 
 log() { echo "[mitmproxy] $*"; }
+error() { echo "[mitmproxy] ERROR: $*" >&2; exit 1; }
+
+[[ -z "${MITM_USER:-}" ]] && \
+    error "Missing user."
+[[ -z "${MITM_PORT:-}" ]] && \
+    error "Missing port."
+[[ -z "${MITM_CONF_DIR:-}" ]] && \
+    error "Missing config directory."
+[[ -z "${MITM_CA_DIR:-}" ]] && \
+    error "Missing CA directory."
 
 # Stop any existing mitmdump process
 if [[ -f /tmp/mitmproxy.pid ]]; then
@@ -36,7 +50,7 @@ log "Starting mitmproxy as '${MITM_USER}' (uid $(id -u ${MITM_USER}))..."
 mkdir -p "${MITM_CONF_DIR}"
 chown "${MITM_USER}:${MITM_USER}" "${MITM_CONF_DIR}"
 
-runuser -u "${MITM_USER}" -s /bin/bash -- -c "
+runuser -u "${MITM_USER}" -- /bin/bash -c "
     /opt/mitmproxy-venv/bin/mitmdump \
         --mode transparent \
         --listen-host 0.0.0.0 \
