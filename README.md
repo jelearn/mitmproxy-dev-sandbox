@@ -21,35 +21,36 @@ To get started:
 
 Notes on issues and things to look-into:
 
-    - [ ] Update the entrypoint.sh such that if the VS Code window is closed
-          it's re-opened again after automatically.
-    - [ ] Fix the continue.dev installation/configuration which doesn't seem to
-          be reading the Claude Code configuration in the coder user.
-    - [ ] Make the noVNC/tigerVNC screen size dynamic to browser window size?
-    - [ ] Expose the noVNC/tigerVNC clip-board to the host OS?
-    - [ ] Undecorate the VS Code window by default.
-    - [ ] Address host to guest OS permissions mounting limitations and/or an
-          easy way to control what is moved into the workspace.
-    - [ ] Fix entrypoint.sh, which should call per-service scripts, but doesn't.
-    - [~] Fix entrypoint.sh (and related scripts) usage of the configured
-          defaults for the setup (e.g. MITM_USER, MITM_PORT, etc.) so they
-          are not hard-coded per file, but read from the environment.
-    - [ ] Update mitmproxy to not include its own self-signed cert and only trust
-          normal system certs.
-    - [ ] Fix `iptables` rules to route all coder user through proxy only.
-          (instead of non-coder)
-    - [ ] Update VS Code config to trust the workspace directory (and parent) automatically.
-    - [X] Update the compose to have /home/coder/.claude/.credentials.json
-          as an external read/write directory on the host OS.
-          (DONE: via compose.yml volumes)
-        - [X] Also potentially consider: ~/.claude.json
-            (DONE: via scripts/entrypoint.sh modifications to point to claude_ai volume)
-        - [ ] Also clean-up references to the API key and .env, as they don't
-              seem to be used by claude code in all cases (some accounts).
-    - [ ] Generate the mitmproxy cert once, outside the image and import it.
-    - [ ] Pre-bake extensions into docker image?
-    - [ ] Run display services as non-root user?
-    - [ ] Re-visit the vnc path lookup in the entrypoint.sh as it has issues.
+- [ ] *Finish reviewing all Claude Code generated code and content*.
+- [ ] Update the entrypoint.sh such that if the VS Code window is closed
+      it's re-opened again after automatically.
+- [ ] Fix the continue.dev installation/configuration which doesn't seem to
+      be reading the Claude Code configuration in the coder user.
+- [ ] Make the noVNC/tigerVNC screen size dynamic to browser window size?
+- [ ] Expose the noVNC/tigerVNC clip-board to the host OS?
+- [ ] Undecorate the VS Code window by default.
+- [ ] Address host to guest OS permissions mounting limitations and/or an
+      easy way to control what is moved into the workspace.
+- [ ] Fix entrypoint.sh, which should call per-service scripts, but doesn't.
+- [~] Fix entrypoint.sh (and related scripts) usage of the configured
+      defaults for the setup (e.g. `MITM_USER`, `MITM_PORT`, etc.) so they
+      are not hard-coded per file, but read from the environment.
+- [ ] Update mitmproxy to not include its own self-signed cert and only trust
+      normal system certs.
+- [ ] Fix `iptables` rules to route all coder user through proxy only.
+      (instead of non-coder)
+- [ ] Update VS Code config to trust the workspace directory (and parent) automatically.
+- [X] Update the compose to have /home/coder/.claude/.credentials.json
+      as an external read/write directory on the host OS.
+      (DONE: via compose.yml volumes)
+    - [X] Also potentially consider: ~/.claude.json
+        (DONE: via scripts/entrypoint.sh modifications to point to `claude_ai` volume)
+    - [ ] Also clean-up references to the API key and .env, as they don't
+          seem to be used by claude code in all cases (some accounts).
+- [ ] Generate the mitmproxy cert once, outside the image and import it.
+- [ ] Pre-bake extensions into docker image?
+- [ ] Run display services as non-root user?
+- [ ] Re-visit the vnc path lookup in the entrypoint.sh as it has issues.
 
 ## Key fix in v2: mitmproxy runs as a dedicated 'mitm' user
 
