@@ -60,6 +60,7 @@ ALLOW_RULES: list[tuple[str, str]] = [
     ("openvsx.eclipsecontent.org", "/esbenp/prettier-vscode/"),
     ("openvsx.eclipsecontent.org", "/dbaeumer/vscode-eslint"),
     ("openvsx.eclipsecontent.org", "/eamodio/gitlens/"),
+    ("openvsx.eclipsecontent.org", "/Anthropic/"),
 ]
 
 # Build an index for O(1) host lookup
