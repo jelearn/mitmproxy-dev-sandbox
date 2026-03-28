@@ -1,6 +1,6 @@
 # ============================================================
 # VS Code + mitmproxy Sandbox
-# Base: Ubuntu 24.04
+# Base: Debian
 #
 # Architecture:
 #   User separation between coder and mitmproxy.
@@ -58,7 +58,7 @@
 #
 # Rebuild trigger: OS package list changes, user UID changes.
 # ════════════════════════════════════════════════════════════
-FROM ubuntu:24.04 AS base
+FROM debian:bookworm-slim AS base
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -128,13 +128,11 @@ RUN apt-get install -y --no-install-recommends \
     openbox \
     novnc \
     websockify \
-    chromium-browser \
+    chromium \
     fonts-liberation \
     fonts-dejavu-core \
-    fonts-noto \
-    dbus-x11 \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    fonts-noto-core \
+    dbus-x11
 
 # TODO: work around ubuntu and snaps? use debian?
 #RUN snap install chromium
@@ -168,6 +166,8 @@ RUN mkdir -p /opt/mitmproxy-ca \
     && chown "${MITM_USER}:${MITM_USER}" /opt/mitmproxy-ca \
     && chmod 755 /opt/mitmproxy-ca
 
+
+# TODO: Decide which is better to use npm or curl install for claude code
 # ════════════════════════════════════════════════════════════
 # STAGE 2 — node-runtime
 #
@@ -177,18 +177,23 @@ RUN mkdir -p /opt/mitmproxy-ca \
 #
 # Rebuild trigger: NODE_MAJOR changes.
 # ════════════════════════════════════════════════════════════
-FROM base AS node-runtime
-
-ARG NODE_MAJOR=20
-
-RUN curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - \
-    && apt-get install -y nodejs
-
-# apt install artifact clean-up
-RUN apt-get clean \
-    && apt autoremove -y \
-    && rm -rf /var/lib/apt/lists/*
-
+#FROM base AS node-runtime
+#
+#ARG NODE_MAJOR=20
+#
+#RUN curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - \
+#    && apt-get install -y nodejs
+#
+## apt install artifact clean-up
+#RUN apt-get clean \
+#    && apt autoremove -y \
+#    && rm -rf /var/lib/apt/lists/*
+#
+#RUN if [ "${CLAUDE_CODE_VERSION}" = "latest" ]; then \
+#        npm install -g @anthropic-ai/claude-code; \
+#    else \
+#        npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"; \
+#    fi
 
 # ════════════════════════════════════════════════════════════
 # STAGE 3a — code-server-install
@@ -199,7 +204,8 @@ RUN apt-get clean \
 #
 # Rebuild trigger: CODE_SERVER_VERSION or CLAUDE_CODE_VERSION changes.
 # ════════════════════════════════════════════════════════════
-FROM node-runtime AS code-server-install
+#FROM node-runtime AS code-server-install
+FROM base AS code-server-install
 
 # Version ARGs — override at build time:
 #   podman build --build-arg CODE_SERVER_VERSION=4.96.0 .
@@ -211,6 +217,7 @@ RUN curl -fsSL \
     -o /tmp/code-server.deb \
     && dpkg -i /tmp/code-server.deb \
     && rm /tmp/code-server.deb
+
 # TODO: come back to this:
 #    && apt-get install -f -y
 
@@ -354,6 +361,7 @@ EXPOSE 6080
 # Note: container_name is set in compose.yml, not here.
 LABEL org.opencontainers.image.title="mitmproxy-dev-sandbox" \
       org.opencontainers.image.description="VS Code sandbox — code-server + Chromium + noVNC + mitmproxy allowlist" \
+      org.opencontainers.image.base.name="debian:bookworm-slim" \
       org.opencontainers.image.version="2.0"
 
 ENTRYPOINT ["/scripts/entrypoint.sh"]

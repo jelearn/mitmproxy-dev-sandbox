@@ -8,8 +8,14 @@ container executes on your host OS.
 
 Notes on issues and things to look-into:
 
+    - [ ] Fix the continue.dev installation/configuration which doesn't seem to
+          be reading the Claude Code configuration in the coder user.
+    - [ ] Make the noVNC/tigerVNC screen size dynamic to browser window size?
     - [ ] Address host to guest OS permissions mounting limitations.
     - [ ] Fix entrypoint.sh, which should call per-service scripts, but doesn't.
+    - [ ] Fix entrypoint.sh (and related scripts) usage of the configured
+          defaults for the setup (e.g. MITM_USER, MITM_PORT, etc.) so they
+          are not hard-coded per file, but read from the environment.
     - [ ] Update mitmproxy to not include its own self-signed cert and only trust
           normal system certs.
     - [ ] Fix `iptables` rules to route all coder user through proxy only.
@@ -19,13 +25,12 @@ Notes on issues and things to look-into:
           (DONE: via compose.yml volumes)
         - [X] Also potentially consider: ~/.claude.json
             (DONE: via scripts/entrypoint.sh modifications to point to claude_ai volume)
-        - [ ] Also clean-up references to the API key and .env, as they don't seem to be used.
+        - [ ] Also clean-up references to the API key and .env, as they don't
+              seem to be used by claude code in all cases (some accounts).
     - [ ] Generate the mitmproxy cert once, outside the image and import it.
-    - [ ] Address issue with chromium on ubuntu requiring snap.
     - [ ] Pre-bake extensions into docker image?
     - [ ] Run display services as non-root user?
     - [ ] Re-visit the vnc path lookup in the entrypoint.sh as it has issues.
-    - [ ] Address issues with compose file volume mount permissions.
 
 ## Key fix in v2: mitmproxy runs as a dedicated 'mitm' user
 
