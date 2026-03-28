@@ -32,7 +32,7 @@ Notes on issues and things to look-into:
 - [ ] Address host to guest OS permissions mounting limitations and/or an
       easy way to control what is moved into the workspace.
 - [ ] Fix entrypoint.sh, which should call per-service scripts, but doesn't.
-- [~] Fix entrypoint.sh (and related scripts) usage of the configured
+- [ ] Fix entrypoint.sh (and related scripts) usage of the configured
       defaults for the setup (e.g. `MITM_USER`, `MITM_PORT`, etc.) so they
       are not hard-coded per file, but read from the environment.
 - [ ] Update mitmproxy to not include its own self-signed cert and only trust
@@ -40,13 +40,8 @@ Notes on issues and things to look-into:
 - [ ] Fix `iptables` rules to route all coder user through proxy only.
       (instead of non-coder)
 - [ ] Update VS Code config to trust the workspace directory (and parent) automatically.
-- [X] Update the compose to have /home/coder/.claude/.credentials.json
-      as an external read/write directory on the host OS.
-      (DONE: via compose.yml volumes)
-    - [X] Also potentially consider: ~/.claude.json
-        (DONE: via scripts/entrypoint.sh modifications to point to `claude_ai` volume)
-    - [ ] Also clean-up references to the API key and .env, as they don't
-          seem to be used by claude code in all cases (some accounts).
+- [ ] Clean-up references to the API key and .env, as they don't
+      seem to be used by claude code in all cases (some accounts).
 - [ ] Generate the mitmproxy cert once, outside the image and import it.
 - [ ] Pre-bake extensions into docker image?
 - [ ] Run display services as non-root user?
