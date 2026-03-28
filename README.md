@@ -4,13 +4,30 @@ VS Code in a browser, with all outbound HTTPS inspected by mitmproxy.
 Pixel-streamed to your host via noVNC — no JavaScript from inside the
 container executes on your host OS.
 
+## TLDR;
+
+To get started:
+
+1) Run `./manage.sh build` to build the images.
+2) Run `./manage.sh start` to start the containerized sandbox environment.
+3) Run `./manage.sh claude` to start a shell into Claude Code.
+4) Follow the Claude Code instructions to setup/authorize it to
+   access your account (copy URL into browser and paste in
+   authorization code).
+5) Work on the command-line and/or go to [the local VNC instance](http://localhost:6080/vnc.html)
+   and use VS Code.
+
 ## TODO
 
 Notes on issues and things to look-into:
 
+    - [ ] Update the entrypoint.sh such that if the VS Code window is closed
+          it's re-opened again after automatically.
     - [ ] Fix the continue.dev installation/configuration which doesn't seem to
           be reading the Claude Code configuration in the coder user.
     - [ ] Make the noVNC/tigerVNC screen size dynamic to browser window size?
+    - [ ] Expose the noVNC/tigerVNC clip-board to the host OS?
+    - [ ] Undecorate the VS Code window by default.
     - [ ] Address host to guest OS permissions mounting limitations and/or an
           easy way to control what is moved into the workspace.
     - [ ] Fix entrypoint.sh, which should call per-service scripts, but doesn't.
