@@ -5,6 +5,12 @@
 
 set -euo pipefail
 
+BASE_DIR=$(dirname $0)
+
+# TODO: Look these up from somewhere consitent
+CODER_USER="coder"
+WORKSPACE="/home/${CODER_USER}/workspace"
+
 CONTAINER="mitmproxy-dev-sandbox"
 IMAGE="mitmproxy-dev-sandbox:latest"
 URL="http://localhost:6080/vnc.html"
@@ -20,6 +26,11 @@ require_running() {
         || error "Container not running. Run: ./manage.sh start"
 }
 
+sandbox_workspace_link() {
+    rm -f sandbox
+    ln -fs "$(podman volume inspect --format '{{.Mountpoint}}' mitmproxy-dev-sandbox_workspace_data)" sandbox
+}
+
 cmd="${1:-help}"
 
 case "${cmd}" in
@@ -33,11 +44,18 @@ case "${cmd}" in
         [[ -f .env ]] || error "No .env file. Create one with ANTHROPIC_API_KEY=..."
         podman compose up -d
         sleep 3
+        sandbox_workspace_link
         ok "noVNC at: ${URL}"
         ;;
 
     stop)   podman compose down;        ok "Stopped." ;;
-    restart) podman compose down && podman compose up -d; ok "Restarted. ${URL}" ;;
+    restart) podman compose down && podman compose up -d; sandbox_workspace_link; ok "Restarted. ${URL}" ;;
+
+    load_workspace)
+        podman exec "${CONTAINER}" find "${WORKSPACE}" -mindepth 1 -exec rm -rf "{}" \;
+        podman cp "${BASE_DIR}/workspace" "${CONTAINER}:/home/coder/"
+        podman exec "${CONTAINER}" chown -R "${CODER_USER}:${CODER_USER}" "${WORKSPACE}"
+    ;;
 
     status)
         if podman ps --format '{{.Names}}' | grep -q "^${CONTAINER}$"; then
@@ -91,7 +109,7 @@ case "${cmd}" in
     reload-allowlist)
         require_running
         info "Copying updated allowlist into container..."
-        podman cp config/mitmproxy/allowlist.py \
+        podman cp "${BASE_DIR}/config/mitmproxy/allowlist.py" \
             "${CONTAINER}:/etc/mitmproxy/allowlist.py"
         MITM_PID=$(podman exec "${CONTAINER}" \
             cat /tmp/mitmproxy.pid 2>/dev/null || true)
@@ -205,6 +223,7 @@ case "${cmd}" in
         echo ""
         printf "  %-22s %s\n" "build"            "Build the podman image"
         printf "  %-22s %s\n" "start"            "Start the container"
+        printf "  %-22s %s\n" "load_workspace"   "Replaces the ${CODER_USER} user's workspace in sandbox with: ${WORKSPACE}"
         printf "  %-22s %s\n" "stop / restart"   "Stop or restart"
         printf "  %-22s %s\n" "status"           "Status + process user summary"
         printf "  %-22s %s\n" "logs"             "Tail all logs"

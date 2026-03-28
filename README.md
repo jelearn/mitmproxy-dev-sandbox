@@ -8,6 +8,7 @@ container executes on your host OS.
 
 To get started:
 
+0) Install `podman`.
 1) Run `./manage.sh build` to build the images.
 2) Run `./manage.sh start` to start the containerized sandbox environment.
 3) Run `./manage.sh claude` to start a shell into Claude Code.
@@ -16,6 +17,10 @@ To get started:
    authorization code).
 5) Work on the command-line and/or go to [the local VNC instance](http://localhost:6080/vnc.html)
    and use VS Code.
+6) Use the `./manage.sh load_workspace` to replace the coder user's workspace
+   directory with the contents of the a local `./workspace` directory.
+7) The contents of the sandbox's workspace directory will be linked to from the
+   `./sandbox` directory (created after `start`).
 
 ## TODO
 

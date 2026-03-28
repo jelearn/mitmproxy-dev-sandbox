@@ -3,8 +3,10 @@
 *.swp
 *.swo
 
-# Input to the sandbox
-sandbox/
+# Link to the sandbox workspace volume
+sandbox
+# Local files to load into the sandbox workspace volume
+workspace
 
 # local settings
 .env
