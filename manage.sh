@@ -7,7 +7,7 @@ set -euo pipefail
 
 CONTAINER="mitmproxy-dev-sandbox"
 IMAGE="mitmproxy-dev-sandbox:latest"
-URL="http://localhost:6080"
+URL="http://localhost:6080/vnc.html"
 
 BLU='\033[0;34m'; GRN='\033[0;32m'; YLW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 info()  { echo -e "${BLU}[manage]${NC} $*"; }
@@ -161,7 +161,7 @@ case "${cmd}" in
     claude)
         require_running
         info "Running claude as 'coder'..."
-        podman exec -it --user coder "${CONTAINER}" /bin/bash -l -c "cd ~/workspace && claude --resume"
+        podman exec -it --user coder "${CONTAINER}" /bin/bash -l -c "cd ~/workspace && claude"
         ;;
 
     mitm-shell)
