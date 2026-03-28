@@ -13,14 +13,10 @@
 
 set -euo pipefail
 
-#MITM_USER="mitm"
-MITM_USER=$1
-#MITM_PORT=8081
-MITM_PORT=$2
-#MITM_CONF_DIR="/home/${MITM_USER}/.mitmproxy"
-MITM_CONF_DIR=$3
-#MITM_CA_DIR="/opt/mitmproxy-ca"
-MITM_CA_DIR=$4
+MITM_USER=${1:-mitm}
+MITM_PORT=${2:-8081}
+MITM_CONF_DIR=${3:-"/home/${MITM_USER}/.mitmproxy"}
+MITM_CA_DIR=${4:-/opt/mitmproxy-ca}
 
 log() { echo "[mitmproxy] $*"; }
 error() { echo "[mitmproxy] ERROR: $*" >&2; exit 1; }

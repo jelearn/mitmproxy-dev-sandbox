@@ -13,7 +13,7 @@ Notes on issues and things to look-into:
     - [ ] Make the noVNC/tigerVNC screen size dynamic to browser window size?
     - [ ] Address host to guest OS permissions mounting limitations.
     - [ ] Fix entrypoint.sh, which should call per-service scripts, but doesn't.
-    - [ ] Fix entrypoint.sh (and related scripts) usage of the configured
+    - [~] Fix entrypoint.sh (and related scripts) usage of the configured
           defaults for the setup (e.g. MITM_USER, MITM_PORT, etc.) so they
           are not hard-coded per file, but read from the environment.
     - [ ] Update mitmproxy to not include its own self-signed cert and only trust
