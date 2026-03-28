@@ -68,7 +68,7 @@ case "${cmd}" in
         require_running
         info "Live proxy traffic (Ctrl-C to stop):"
         podman exec "${CONTAINER}" \
-            tail -f /tmp/mitmproxy.log \
+            tail -n 80 -f /tmp/mitmproxy.log \
             | grep --line-buffered -E '\[(ALLOWED|BLOCKED)\]'
         ;;
 
@@ -97,10 +97,11 @@ case "${cmd}" in
             cat /tmp/mitmproxy.pid 2>/dev/null || true)
         if [[ -n "${MITM_PID}" ]]; then
             podman exec "${CONTAINER}" kill -HUP "${MITM_PID}"
-            ok "mitmproxy reloaded (pid ${MITM_PID})."
+            ok "mitmproxy killed (pid ${MITM_PID})."
         else
-            warn "mitmproxy PID not found — restart to reload."
+            warn "mitmproxy PID not found."
         fi
+        podman exec "${CONTAINER}" "/scripts/start-mitmproxy.sh"
         ;;
 
     verify-users)
@@ -116,7 +117,7 @@ case "${cmd}" in
         MITM_USER=$(podman exec "${CONTAINER}" \
             ps -eo user,comm | awk '$2=="mitmdump"{print $1}' | head -1)
         CODER_CODESERVER=$(podman exec "${CONTAINER}" \
-            ps -eo user,comm | awk '$2=="code-server"{print $1}' | head -1)
+            ps -ef | grep "/usr/lib/code-server/lib/node /usr/lib/code-server --bind-addr 127.0.0.1" | awk '{print $1}' | head -1)
 
         [[ "${MITM_USER}" == "mitm" ]] \
             && ok "mitmproxy is running as 'mitm' ✓" \
@@ -176,7 +177,7 @@ case "${cmd}" in
         warn "Deletes all workspace files."
         read -rp "Sure? [y/N] " c; [[ "${c,,}" == "y" ]] || exit 0
         podman compose down
-        podman volume rm "$(basename "$(pwd)")_workspace_data" 2>/dev/null || true
+        podman volume rm "${CONTAINER}_workspace_data" 2>/dev/null || true
         ok "Workspace removed."
         ;;
 
@@ -185,7 +186,7 @@ case "${cmd}" in
         warn "A new CA is generated on next start and reinstalled into Chromium."
         read -rp "Sure? [y/N] " c; [[ "${c,,}" == "y" ]] || exit 0
         podman compose down
-        podman volume rm "$(basename '$(pwd}')_mitmproxy_ca" 2>/dev/null || true
+        podman volume rm "${CONTAINER}_mitmproxy_ca" 2>/dev/null || true
         ok "CA volume removed."
         ;;
 
