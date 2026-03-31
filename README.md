@@ -29,8 +29,6 @@ Notes on issues and things to look-into:
 - [ ] *Finish reviewing all Claude Code generated code and content*.
 - [ ] Update the entrypoint.sh such that if the VS Code window is closed
       it's re-opened again after automatically.
-- [ ] Fix the continue.dev installation/configuration which doesn't seem to
-      be reading the Claude Code configuration in the coder user.
 - [ ] Make the noVNC/tigerVNC screen size dynamic to browser window size?
 - [ ] Expose the noVNC/tigerVNC clip-board to the host OS?
 - [ ] Undecorate the VS Code window by default.
@@ -135,7 +133,6 @@ Host browser → localhost:6080
 ### 1. Create .env
 ```bash
 cat > .env <<'EOF'
-ANTHROPIC_API_KEY=sk-ant-your-key-here
 VNC_PASSWORD=choose-a-strong-password
 SCREEN_RESOLUTION=1600x900x24
 GIT_AUTHOR_NAME=Your Name

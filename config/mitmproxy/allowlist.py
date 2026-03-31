@@ -55,7 +55,6 @@ ALLOW_RULES: list[tuple[str, str]] = [
 
     # Extra Open VSX Extensions
     ("openvsx.eclipsecontent.org", "/streetsidesoftware/code-spell-checker/"),
-    ("openvsx.eclipsecontent.org", "/Continue/continue/"),
     ("openvsx.eclipsecontent.org", "/ms-python/"),
     ("openvsx.eclipsecontent.org", "/esbenp/prettier-vscode/"),
     ("openvsx.eclipsecontent.org", "/dbaeumer/vscode-eslint"),

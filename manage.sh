@@ -41,7 +41,6 @@ case "${cmd}" in
         ;;
 
     start)
-        [[ -f .env ]] || error "No .env file. Create one with ANTHROPIC_API_KEY=..."
         podman compose up -d
         sleep 3
         sandbox_workspace_link

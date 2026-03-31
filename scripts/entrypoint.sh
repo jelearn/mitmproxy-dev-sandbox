@@ -8,7 +8,7 @@
 #   coder (uid 1000) — everything else (VS Code, Chromium, etc.)
 #
 # Startup order:
-#   1.  Validate ANTHROPIC_API_KEY
+#   1.  Setup .claude environment files
 #   2.  Start mitmproxy as 'mitm'
 #   3.  Wait for CA cert, then install it for 'coder'
 #         a. System CA store
@@ -51,22 +51,19 @@ log()   { echo "[entrypoint] $(date '+%H:%M:%S') $*"; }
 # possibly remove this in future
 error() { echo "[entrypoint] ERROR: $*" >&2; bash; exit 1; }
 
-# ── Step 1: Validate API key ──────────────────────────────────
-[[ -z "${ANTHROPIC_API_KEY:-}" ]] && \
-    error "ANTHROPIC_API_KEY is not set. Add it to your .env file."
-log "API key present (${#ANTHROPIC_API_KEY} chars)."
+# ── Step 1: Setup claude.ai config  ──────────────────────────────────
 
 # TODO: Revisit, this is an attempt to persist more settings
 log "Initializing .claude.json on first run, or linking to existing..."
 if [[ ! -f "/home/${CODER_USER}/.claude/claude.json" ]]; then
     log "Moving default .claude.json"
-    mv /home/${CODER_USER}/.claude.json /home/${CODER_USER}/.claude/claude.json
-else
+    runuser -u "${CODER_USER}" -- touch /home/${CODER_USER}/.claude.json
+    runuser -u "${CODER_USER}" -- mv /home/${CODER_USER}/.claude.json /home/${CODER_USER}/.claude/claude.json
+elif [[ -f "/home/${CODER_USER}/.claude.json" ]]; then
     log "Deleting default .claude.json"
-    rm /home/${CODER_USER}/.claude.json
+    runuser -u "${CODER_USER}" -- rm /home/${CODER_USER}/.claude.json
 fi
-ln -s /home/${CODER_USER}/.claude/claude.json /home/${CODER_USER}/.claude.json
-chown ${CODER_USER}:${CODER_USER} /home/${CODER_USER}/.claude.json /home/${CODER_USER}/.claude/claude.json
+runuser -u "${CODER_USER}" -- ln -s /home/${CODER_USER}/.claude/claude.json /home/${CODER_USER}/.claude.json
 
 # ── Step 2: Start mitmproxy as 'mitm' ─────────────────────────
 # mitm is a no-login user (shell: /usr/sbin/nologin), so we use
@@ -131,7 +128,6 @@ log "Chromium NSS database updated."
 log "Configuring Node.js and git CA trust for '${CODER_USER}'..."
 cat > "/home/${CODER_USER}/.profile.d/sandbox-env.sh" <<EOF
 # Injected by entrypoint.sh — do not edit manually.
-export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}"
 export NODE_EXTRA_CA_CERTS="${MITM_CA}"
 export REQUESTS_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"
 export SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"

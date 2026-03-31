@@ -226,7 +226,7 @@ RUN apt-get clean \
     && apt autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
-RUN runuser -u "${CODER_USER}" -- /bin/bash -c "cd /home/${CODER_USER}/ && curl -fsSL https://claude.ai/install.sh | bash"
+RUN runuser -u "${CODER_USER}" -- /bin/bash -c "cd ~/ && curl -fsSL https://claude.ai/install.sh | bash"
 
 # ════════════════════════════════════════════════════════════
 # STAGE 3b — mitmproxy-install
@@ -304,19 +304,15 @@ RUN mkdir -p \
         /home/${CODER_USER}/.config/code-server \
         /home/${CODER_USER}/.local/share/code-server/User \
         /home/${CODER_USER}/.local/share/code-server/extensions \
-        /home/${CODER_USER}/.continue \
         /home/${CODER_USER}/.pki/nssdb \
         /home/${CODER_USER}/.profile.d \
     && chown -R ${CODER_USER}:${CODER_USER} /home/${CODER_USER}
 
 COPY config/vscode/settings.json \
     /home/${CODER_USER}/.local/share/code-server/User/settings.json
-COPY config/continue/config.json \
-    /home/${CODER_USER}/.continue/config.json
 
 RUN chown ${CODER_USER}:${CODER_USER} \
-        /home/${CODER_USER}/.local/share/code-server/User/settings.json \
-        /home/${CODER_USER}/.continue/config.json
+        /home/${CODER_USER}/.local/share/code-server/User/settings.json
 
 # code-server config (auth none — Chromium is inside the container)
 RUN printf 'bind-addr: 127.0.0.1:8080\nauth: none\ncert: false\n' \

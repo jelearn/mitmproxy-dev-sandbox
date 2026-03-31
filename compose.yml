@@ -16,7 +16,6 @@ services:
     ports:
       - "127.0.0.1:6080:6080"
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:?Set ANTHROPIC_API_KEY in .env}
       - VNC_PASSWORD=${VNC_PASSWORD:-}
       - SCREEN_RESOLUTION=${SCREEN_RESOLUTION:-1600x900x24}
       - GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME:-Developer}

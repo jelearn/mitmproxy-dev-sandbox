@@ -23,7 +23,6 @@ install_ext() {
 }
 
 install_ext "Anthropic.claude-code"
-install_ext "continue.continue"
 install_ext "ms-python.python"
 install_ext "ms-python.vscode-pylance"
 install_ext "esbenp.prettier-vscode"
