@@ -12,7 +12,7 @@ CODER_USER="coder"
 WORKSPACE="/home/${CODER_USER}/workspace"
 
 CONTAINER="mitmproxy-dev-sandbox"
-IMAGE="mitmproxy-dev-sandbox:latest"
+IMAGE="mitmproxy-dev-sandbox_composed-sandbox:latest"
 URL="http://localhost:6080/vnc.html"
 
 BLU='\033[0;34m'; GRN='\033[0;32m'; YLW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
