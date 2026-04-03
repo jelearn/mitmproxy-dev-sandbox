@@ -134,9 +134,6 @@ RUN apt-get install -y --no-install-recommends \
     fonts-noto-core \
     dbus-x11
 
-# TODO: work around ubuntu and snaps? use debian?
-#RUN snap install chromium
-
 # apt install artifact clean-up
 RUN apt-get clean \
     && apt autoremove -y \
@@ -221,12 +218,12 @@ RUN curl -fsSL \
 # TODO: come back to this:
 #    && apt-get install -f -y
 
+RUN runuser -u "${CODER_USER}" -- /bin/bash -c "cd ~/ && curl -fsSL https://claude.ai/install.sh | bash"
+
 # apt install artifact clean-up
 RUN apt-get clean \
     && apt autoremove -y \
     && rm -rf /var/lib/apt/lists/*
-
-RUN runuser -u "${CODER_USER}" -- /bin/bash -c "cd ~/ && curl -fsSL https://claude.ai/install.sh | bash"
 
 # ════════════════════════════════════════════════════════════
 # STAGE 3b — mitmproxy-install
