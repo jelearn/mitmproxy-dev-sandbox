@@ -32,20 +32,19 @@ Notes on issues and things to look-into:
     - Initial solution was to modify the URL used to connect.
 - [ ] Expose the noVNC/tigerVNC clip-board to the host OS?
 - [ ] Undecorate the VS Code window by default.
-- [ ] Address host to guest OS permissions mounting limitations and/or an
+- [o] Address host to guest OS permissions mounting limitations and/or an
       easy way to control what is moved into the workspace.
+    - Current workaround is the "sandbox" (link to podman volume) and the
+      `./manage.sh load_workspace`command to load the contents of the local
+      "workspace" directory into the workspace volume.
 - [ ] Fix entrypoint.sh, which should call per-service scripts, but doesn't.
 - [ ] Fix entrypoint.sh (and related scripts) usage of the configured
       defaults for the setup (e.g. `MITM_USER`, `MITM_PORT`, etc.) so they
       are not hard-coded per file, but read from the environment.
 - [ ] Update mitmproxy to not include its own self-signed cert and only trust
       normal system certs.
-- [ ] Fix `iptables` rules to route all coder user through proxy only.
-      (instead of non-coder)
 - [X] Update VS Code config to trust the workspace directory (and parent) automatically.
     - For now, for the purposes of the sandbox, it is fine to trust from the start.
-- [ ] Clean-up references to the API key and .env, as they don't
-      seem to be used by claude code in all cases (some accounts).
 - [ ] Generate the mitmproxy cert once, outside the image and import it.
 - [ ] Pre-bake extensions into docker image?
 - [ ] Run display services as non-root user?
