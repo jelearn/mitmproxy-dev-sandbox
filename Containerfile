@@ -78,6 +78,16 @@ ENV CODER_USER=${CODER_USER} \
 
 RUN apt-get update
 
+# This is the minimal effort to allow all UTF-8 characters
+# to be displayed properly, which aren't by default as the
+# POSIX locale doesn't support them.
+RUN apt-get update && apt-get install -y locales && \
+    sed -i 's/# C.UTF-8 UTF-8/C.UTF-8 UTF-8/' /etc/locale.gen && \
+    locale-gen
+
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
 # ════════════════════════════════════════════════════════════
 # core-utilities
 #
