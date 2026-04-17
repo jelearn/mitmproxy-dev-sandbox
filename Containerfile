@@ -111,7 +111,8 @@ RUN apt-get install -y --no-install-recommends \
     xterm \
     less \
     vim \
-    tmux
+    tmux \
+    shellcheck
 
 # ════════════════════════════════════════════════════════════
 # display-stack

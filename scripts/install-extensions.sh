@@ -29,5 +29,6 @@ install_ext "esbenp.prettier-vscode"
 install_ext "dbaeumer.vscode-eslint"
 install_ext "eamodio.gitlens"
 install_ext "streetsidesoftware.code-spell-checker"
+install_ext "timonwong.shellcheck"
 
 log "Done."
