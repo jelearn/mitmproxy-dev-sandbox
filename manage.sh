@@ -56,7 +56,13 @@ case "${cmd}" in
         if [[ ! -d "${WORKSPACE_HOST}" ]]; then
             error "Local workspace does not exist: ${WORKSPACE_HOST}"
         fi
-        podman exec "${CONTAINER}" find "${WORKSPACE_GUEST}" -mindepth 1 -exec rm -rf "{}" \;
+        # NOTE: The deletion method using rm -rf means that a directory may be found
+        # and still deleted, so we ignore all failures, then check that everything is gone after
+        # to be sure.
+        podman exec "${CONTAINER}" find "${WORKSPACE_GUEST}" -mindepth 1 -exec rm -rf "{}" \; || true
+        podman exec -e WORKSPACE_GUEST="${WORKSPACE_GUEST}" "${CONTAINER}" \
+            sh -c 'test -z "$(find "${WORKSPACE_GUEST}" -mindepth 1 -print -quit )"' \
+            || error "Workspace not fully removed."
         podman cp "${WORKSPACE_HOST}" "${CONTAINER}:/home/coder/"
         podman exec "${CONTAINER}" chown -R "${CODER_USER}:${CODER_USER}" "${WORKSPACE_GUEST}"
         ok "Workspace loaded."
