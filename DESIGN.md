@@ -9,18 +9,32 @@ connections, bypassing the proxy entirely.
 
 In v2, two separate users exist with strictly separated roles:
 
-| User   | UID  | Role | Network privilege |
+| User   | Default UID  | Role | Network privilege |
 |--------|------|------|-------------------|
-| `coder` | 1000 | VS Code, Chromium, Claude Code, terminals | None — ALL outbound :443/:80 intercepted by mitmproxy |
-| `mitm`  | 1001 | mitmproxy only | Outbound :443/:80 permitted (gated by allowlist.py) |
+| `coder` | 1100 | VS Code, Chromium, Claude Code, terminals | None — ALL outbound :443/:80 intercepted by mitmproxy |
+| `mitm`  | 1101 | mitmproxy only | Outbound :443/:80 permitted (gated by allowlist.py) |
 
-The iptables REDIRECT exemption is granted to `mitm` (uid 1001) only.
+UIDs are set at build time via `--build-arg CODER_UID=...` / `--build-arg MITM_UID=...` and
+looked up at runtime by name, so the scripts remain correct if UIDs are overridden.
+
+The iptables REDIRECT exemption is granted to `mitm` (uid 1101 by default) only.
 `coder` has no special network treatment — it cannot bypass the proxy
 regardless of what it tries to do.
 
 `mitm` has a no-login shell (`/usr/sbin/nologin`) and owns only the
 mitmproxy process and its config directory. It cannot write to the
 workspace or read the API key.
+
+The system `_apt` user is also granted direct outbound `:443/:80` access
+so that package management (e.g. `apt-get`) can work inside the container
+without going through the allowlist. No other user besides `mitm` and `_apt`
+has unmediated outbound access.
+
+The INPUT chain is locked down as a precautionary measure: only the noVNC
+port (6080), loopback traffic, and already-established connections are
+accepted inbound — everything else is dropped. This limits the container's
+attack surface in the event it is reachable on a broader network rather than
+just localhost.
 
 ---
 
@@ -113,12 +127,17 @@ Open **http://localhost:6080** and click Connect.
 # Edit the allowlist on your host
 vim config/mitmproxy/allowlist.py
 
-# Reload into the running container — no restart needed
+# Copy into the running container and restart mitmproxy
 ./manage.sh reload-allowlist
 
 # Watch the effect live
 ./manage.sh proxy-log
 ```
+
+`reload-allowlist` copies the file into the container, sends SIGHUP to the running
+mitmdump process, and then calls `start-mitmproxy.sh` to restart it. The result is
+always a full mitmproxy restart (connections in flight are dropped briefly). See TODO
+for a note on whether the SIGHUP alone could replace the restart.
 
 ---
 
