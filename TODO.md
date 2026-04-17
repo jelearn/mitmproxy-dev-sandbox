@@ -1,6 +1,6 @@
 Notes on issues and things to look-into:
 
-- [ ] Update mitmproxy to not include its own self-signed cert and only trust
+- [X] Update mitmproxy to not include its own self-signed cert and only trust
       normal system certs.
     - Don't add it to the system ca-certificates?
     - Inject it only into the coder's enviroment (browser, python, vscode, etc.)?

@@ -335,12 +335,20 @@ RUN printf '# Populated at container start by entrypoint.sh\n' \
     && chown ${CODER_USER}:${CODER_USER} \
         /home/${CODER_USER}/.profile.d/sandbox-env.sh
 
-# .bashrc: source env
+# .bashrc: source env (interactive shells — VS Code terminals etc.)
 RUN printf 'source ~/.profile.d/sandbox-env.sh 2>/dev/null || true\n' \
         >> /home/${CODER_USER}/.bashrc \
     && chown ${CODER_USER}:${CODER_USER} /home/${CODER_USER}/.bashrc
 
 RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/${CODER_USER}/.bashrc
+
+# .profile: source env (all login shells, interactive AND non-interactive).
+# .bashrc has an interactivity guard so it won't source sandbox-env.sh in
+# non-interactive login shells (e.g. `bash -l -c "claude"`). .profile has
+# no such guard, so NODE_EXTRA_CA_CERTS reaches the claude binary.
+RUN printf 'source ~/.profile.d/sandbox-env.sh 2>/dev/null || true\n' \
+        >> /home/${CODER_USER}/.profile \
+    && chown ${CODER_USER}:${CODER_USER} /home/${CODER_USER}/.profile
 
 # ── mitm config directory ─────────────────────────────────────
 RUN mkdir -p /home/${MITM_USER}/.mitmproxy \

@@ -10,10 +10,11 @@
 # Startup order:
 #   1.  Setup .claude environment files
 #   2.  Start mitmproxy as 'mitm'
-#   3.  Wait for CA cert, then install it for 'coder'
-#         a. System CA store
+#   3.  Wait for CA cert, then inject it into coder's environment only
+#         a. Build coder-scoped merged CA bundle (system certs + mitmproxy cert)
 #         b. Chromium NSS database
-#         c. Node.js (NODE_EXTRA_CA_CERTS)
+#         c. Env vars: NODE_EXTRA_CA_CERTS, REQUESTS_CA_BUNDLE, SSL_CERT_FILE,
+#            CURL_CA_BUNDLE, PIP_CERT, git http.sslCAInfo
 #   4.  Apply iptables REDIRECT (exempts mitm uid, not coder)
 #   5.  Start Xtigervnc virtual display
 #   6.  Start Openbox window manager
@@ -99,11 +100,16 @@ chown "${MITM_USER}:${MITM_USER}" "${MITM_CA}"
 chmod 644 "${MITM_CA}"   # world-readable so coder can trust it
 log "CA cert available at ${MITM_CA}."
 
-# 3a. System CA store (affects curl, wget, git, pip inside container)
-log "Installing CA cert into system store..."
-cp "${MITM_CA}" /usr/local/share/ca-certificates/mitmproxy-sandbox-ca.crt
-update-ca-certificates --fresh > /dev/null 2>&1
-log "System CA store updated."
+# 3a. Build a coder-scoped merged CA bundle (system certs + mitmproxy cert).
+# We do NOT add the mitmproxy cert to the system CA store — it is injected
+# only into the coder user's environment via env vars below.
+CODER_CA_BUNDLE="/home/${CODER_USER}/.config/ssl/ca-bundle.pem"
+log "Building coder-scoped CA bundle at ${CODER_CA_BUNDLE}..."
+mkdir -p "/home/${CODER_USER}/.config/ssl"
+cat /etc/ssl/certs/ca-certificates.crt "${MITM_CA}" > "${CODER_CA_BUNDLE}"
+chown -R "${CODER_USER}:${CODER_USER}" "/home/${CODER_USER}/.config/ssl"
+chmod 644 "${CODER_CA_BUNDLE}"
+log "Coder CA bundle ready."
 
 # 3b. Chromium NSS database (Chromium doesn't use the system store)
 log "Installing CA cert into Chromium NSS database for '${CODER_USER}'..."
@@ -121,16 +127,18 @@ runuser -u "${CODER_USER}" -- bash -c "
 "
 log "Chromium NSS database updated."
 
-# 3c. Node.js / Claude Code
-# Node.js ignores the system CA store; NODE_EXTRA_CA_CERTS tells
-# it where to find additional trusted certs. We write this into
-# the coder user's environment so every VS Code terminal gets it.
-log "Configuring Node.js and git CA trust for '${CODER_USER}'..."
+# 3c. Inject CA trust into coder's environment.
+# Node.js ignores the system CA store; NODE_EXTRA_CA_CERTS appends to its
+# built-in bundle. All other tools (curl, Python, git, pip) get the merged
+# bundle that combines system certs with the mitmproxy cert.
+log "Configuring CA trust environment for '${CODER_USER}'..."
 cat > "/home/${CODER_USER}/.profile.d/sandbox-env.sh" <<EOF
 # Injected by entrypoint.sh — do not edit manually.
 export NODE_EXTRA_CA_CERTS="${MITM_CA}"
-export REQUESTS_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"
-export SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+export REQUESTS_CA_BUNDLE="${CODER_CA_BUNDLE}"
+export SSL_CERT_FILE="${CODER_CA_BUNDLE}"
+export CURL_CA_BUNDLE="${CODER_CA_BUNDLE}"
+export PIP_CERT="${CODER_CA_BUNDLE}"
 EOF
 chmod 600 "/home/${CODER_USER}/.profile.d/sandbox-env.sh"
 chown "${CODER_USER}:${CODER_USER}" "/home/${CODER_USER}/.profile.d/sandbox-env.sh"
@@ -139,15 +147,23 @@ BASHRC="/home/${CODER_USER}/.bashrc"
 grep -q 'profile.d/sandbox-env' "${BASHRC}" 2>/dev/null \
     || echo 'source ~/.profile.d/sandbox-env.sh 2>/dev/null || true' >> "${BASHRC}"
 
+# .profile is sourced for all login shells (interactive AND non-interactive),
+# unlike .bashrc which is guarded by an interactivity check. This ensures
+# NODE_EXTRA_CA_CERTS is set when claude runs via non-interactive login shells
+# (e.g. `bash -l -c "claude"` from manage.sh).
+PROFILE="/home/${CODER_USER}/.profile"
+grep -q 'profile.d/sandbox-env' "${PROFILE}" 2>/dev/null \
+    || echo 'source ~/.profile.d/sandbox-env.sh 2>/dev/null || true' >> "${PROFILE}"
+
 # Git identity + CA config
 runuser -u "${CODER_USER}" -- bash -c "
     git config --global user.name  '${GIT_AUTHOR_NAME:-Developer}'
     git config --global user.email '${GIT_AUTHOR_EMAIL:-dev@sandbox.local}'
     git config --global init.defaultBranch main
     git config --global safe.directory '*'
-    git config --global http.sslCAInfo '/etc/ssl/certs/ca-certificates.crt'
+    git config --global http.sslCAInfo "${CODER_CA_BUNDLE}"
 "
-log "Node.js and git CA trust configured."
+log "CA trust environment configured for '${CODER_USER}'."
 
 # ── Step 4: Apply iptables REDIRECT ──────────────────────────
 # firewall.sh exempts MITM_UID (1001 = mitm user) from the
