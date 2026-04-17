@@ -153,6 +153,9 @@ case "${cmd}" in
 
     firewall)
         require_running
+        info "iptables filter INPUT:"
+        podman exec "${CONTAINER}" iptables -L INPUT -n --line-numbers -v
+        echo ""
         info "iptables nat OUTPUT (REDIRECT rules):"
         podman exec "${CONTAINER}" iptables -t nat -L OUTPUT -n --line-numbers -v
         echo ""
