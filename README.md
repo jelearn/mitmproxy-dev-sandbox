@@ -41,7 +41,8 @@ Notes on issues and things to look-into:
       normal system certs.
 - [ ] Fix `iptables` rules to route all coder user through proxy only.
       (instead of non-coder)
-- [ ] Update VS Code config to trust the workspace directory (and parent) automatically.
+- [X] Update VS Code config to trust the workspace directory (and parent) automatically.
+    - For now, for the purposes of the sandbox, it is fine to trust from the start.
 - [ ] Clean-up references to the API key and .env, as they don't
       seem to be used by claude code in all cases (some accounts).
 - [ ] Generate the mitmproxy cert once, outside the image and import it.
