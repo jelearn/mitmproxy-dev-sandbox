@@ -127,17 +127,17 @@ Open **http://localhost:6080** and click Connect.
 # Edit the allowlist on your host
 vim config/mitmproxy/allowlist.py
 
-# Copy into the running container and restart mitmproxy
+# Copy into the running container — new rules are active within ~1s
 ./manage.sh reload-allowlist
 
 # Watch the effect live
 ./manage.sh proxy-log
 ```
 
-`reload-allowlist` copies the file into the container, sends SIGHUP to the running
-mitmdump process, and then calls `start-mitmproxy.sh` to restart it. The result is
-always a full mitmproxy restart (connections in flight are dropped briefly). See TODO
-for a note on whether the SIGHUP alone could replace the restart.
+`reload-allowlist` copies the updated file into the container. mitmproxy's script
+addon polls loaded script files every ~1 second and reloads any whose mtime has
+changed — so new rules become active within a second of the copy completing, with
+no connection drop and no mitmproxy restart.
 
 ---
 

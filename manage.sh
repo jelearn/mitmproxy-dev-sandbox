@@ -92,7 +92,7 @@ case "${cmd}" in
         info "Live proxy traffic (Ctrl-C to stop):"
         podman exec "${CONTAINER}" \
             tail -n 80 -f /tmp/mitmproxy.log \
-            | grep --line-buffered -E '\[(ALLOWED|BLOCKED)\]'
+            | grep --line-buffered -E '\[(ALLOWED|BLOCKED|ALLOWLIST)\]'
         ;;
 
     blocked)
@@ -116,15 +116,9 @@ case "${cmd}" in
         info "Copying updated allowlist into container..."
         podman cp "${BASE_DIR}/config/mitmproxy/allowlist.py" \
             "${CONTAINER}:/etc/mitmproxy/allowlist.py"
-        MITM_PID=$(podman exec "${CONTAINER}" \
-            cat /tmp/mitmproxy.pid 2>/dev/null || true)
-        if [[ -n "${MITM_PID}" ]]; then
-            podman exec "${CONTAINER}" kill -HUP "${MITM_PID}"
-            ok "mitmproxy killed (pid ${MITM_PID})."
-        else
-            warn "mitmproxy PID not found."
-        fi
-        podman exec "${CONTAINER}" "/scripts/start-mitmproxy.sh"
+        sleep 2
+        ok "Allowlist reloaded (mitmproxy file-watch picks up changes within ~1s)."
+        info "Run './manage.sh proxy-log' to confirm the new rules are active."
         ;;
 
     verify-users)

@@ -30,7 +30,7 @@ Notes on issues and things to look-into:
 - [ ] Run display services as non-root user?
 - [ ] Re-visit the vnc path lookup in the entrypoint.sh as it has issues.
 - [ ] Support Docker as well as Podman?
-- [ ] Clarify `reload-allowlist` behavior: currently sends SIGHUP to mitmdump then
-      immediately restarts it via `start-mitmproxy.sh`. mitmproxy supports SIGHUP
-      script hot-reload — determine if the restart is still needed or if SIGHUP alone
-      is sufficient (avoiding the brief connection drop on every allowlist edit).
+- [X] Clarify `reload-allowlist` behavior: mitmproxy 10.3.1 registers no SIGHUP
+      handler (SIGHUP would terminate the process). The script addon has a built-in
+      1-second file-watch poller — `podman cp` updating the mtime is sufficient for
+      zero-downtime hot-reload. Removed the SIGHUP + restart from `reload-allowlist`.

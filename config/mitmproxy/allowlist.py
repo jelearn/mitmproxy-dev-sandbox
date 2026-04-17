@@ -102,3 +102,5 @@ class AllowlistAddon:
 
 
 addons = [AllowlistAddon()]
+
+print(f"[ALLOWLIST] Rules (re)loaded: {len(ALLOW_RULES)} entries across {len(_INDEX)} hosts.")
