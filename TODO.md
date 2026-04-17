@@ -23,8 +23,7 @@ Notes on issues and things to look-into:
 - [ ] Fix entrypoint.sh (and related scripts) usage of the configured
       defaults for the setup (e.g. `MITM_USER`, `MITM_PORT`, etc.) so they
       are not hard-coded per file, but read from the environment.
-- [X] Update VS Code config to trust the workspace directory (and parent) automatically.
-    - For now, for the purposes of the sandbox, it is fine to trust from the start.
+- [ ] Update VS Code config to trust the workspace directory (and parent) automatically.
 - [ ] Generate the mitmproxy cert once, outside the image and import it.
 - [ ] Pre-bake extensions into docker image?
 - [ ] Run display services as non-root user?
