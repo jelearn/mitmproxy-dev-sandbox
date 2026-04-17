@@ -13,16 +13,20 @@
 #                                    real upstream server (if allowed)
 #
 # Users:
-#   coder — runs code-server, Chromium, Claude Code,
-#           and all VS Code processes. Has NO special
-#           network privileges. All outbound :443/:80
-#           is intercepted by mitmproxy.
+#   coder   — runs code-server, Chromium, Claude Code,
+#             and all VS Code processes. Has NO special
+#             network privileges. All outbound :443/:80
+#             is intercepted by mitmproxy.
 #
-#   mitm  — runs mitmproxy only. The iptables REDIRECT
-#           exemption is granted to this uid exclusively,
-#           so it is the only process that can make real
-#           outbound HTTPS connections. Cannot sudo.
-#           Cannot write to the workspace.
+#   mitm    — runs mitmproxy only. The iptables REDIRECT
+#             exemption is granted to this uid exclusively,
+#             so it is the only process that can make real
+#             outbound HTTPS connections. Cannot sudo.
+#             Cannot write to the workspace.
+#
+#   display — runs Xtigervnc, Openbox, and noVNC/websockify.
+#             Grants coder X11 access via xhost. No network
+#             privileges beyond localhost.
 #
 # Multi-stage Stages (each has its own cache layer):
 #
@@ -68,13 +72,17 @@ ARG CODER_USER=coder
 ARG CODER_UID=1100
 ARG MITM_USER=mitm
 ARG MITM_UID=1101
+ARG DISPLAY_USER=display
+ARG DISPLAY_UID=1102
 
 # Persist user names as ENV so downstream stages can reference them
 # without re-declaring the ARGs (ARGs do not cross stage boundaries).
 ENV CODER_USER=${CODER_USER} \
     CODER_UID=${CODER_UID} \
     MITM_USER=${MITM_USER} \
-    MITM_UID=${MITM_UID}
+    MITM_UID=${MITM_UID} \
+    DISPLAY_USER=${DISPLAY_USER} \
+    DISPLAY_UID=${DISPLAY_UID}
 
 RUN apt-get update
 
@@ -143,7 +151,8 @@ RUN apt-get install -y --no-install-recommends \
     fonts-liberation \
     fonts-dejavu-core \
     fonts-noto-core \
-    dbus-x11
+    dbus-x11 \
+    x11-xserver-utils  # provides xhost, used by start-display.sh to grant coder X11 access
 
 # apt install artifact clean-up
 RUN apt-get clean \
@@ -166,8 +175,16 @@ RUN useradd \
         --shell /usr/sbin/nologin \
         --comment "mitmproxy service account — no sudo, no login" \
         "${MITM_USER}" \
-    && deluser "${CODER_USER}" sudo 2>/dev/null || true \
-    && deluser "${MITM_USER}"  sudo 2>/dev/null || true
+    && useradd \
+        --uid "${DISPLAY_UID}" \
+        --create-home \
+        --home-dir "/home/${DISPLAY_USER}" \
+        --shell /usr/sbin/nologin \
+        --comment "display service account — Xtigervnc, Openbox, noVNC" \
+        "${DISPLAY_USER}" \
+    && deluser "${CODER_USER}"   sudo 2>/dev/null || true \
+    && deluser "${MITM_USER}"    sudo 2>/dev/null || true \
+    && deluser "${DISPLAY_USER}" sudo 2>/dev/null || true
 
 # ── Shared CA cert directory ──────────────────────────────────
 RUN mkdir -p /opt/mitmproxy-ca \
@@ -293,22 +310,44 @@ COPY scripts/entrypoint.sh           /scripts/entrypoint.sh
 COPY scripts/firewall.sh             /scripts/firewall.sh
 COPY scripts/install-extensions.sh  /scripts/install-extensions.sh
 COPY scripts/launch-chromium.sh     /scripts/launch-chromium.sh
+COPY scripts/start-display.sh       /scripts/start-display.sh
 COPY scripts/start-mitmproxy.sh     /scripts/start-mitmproxy.sh
 RUN chmod +x \
         /scripts/entrypoint.sh \
         /scripts/firewall.sh \
         /scripts/install-extensions.sh \
         /scripts/launch-chromium.sh \
+        /scripts/start-display.sh \
         /scripts/start-mitmproxy.sh
 
 # Merge: copy the mitmproxy venv from its independent build stage.
 # This is the point where both parallel build paths converge.
 COPY --from=mitmproxy-install /opt/mitmproxy-venv /opt/mitmproxy-venv
 
+# ── Service log and PID directories ──────────────────────────
+RUN mkdir -p \
+        /home/${MITM_USER}/logs \
+        /home/${MITM_USER}/run \
+    && chown -R ${MITM_USER}:${MITM_USER} \
+        /home/${MITM_USER}/logs \
+        /home/${MITM_USER}/run \
+    && chmod 750 \
+        /home/${MITM_USER}/logs \
+        /home/${MITM_USER}/run \
+    && mkdir -p \
+        /home/${DISPLAY_USER}/logs \
+        /home/${DISPLAY_USER}/run \
+    && chown -R ${DISPLAY_USER}:${DISPLAY_USER} \
+        /home/${DISPLAY_USER}/logs \
+        /home/${DISPLAY_USER}/run \
+    && chmod 750 \
+        /home/${DISPLAY_USER}/logs \
+        /home/${DISPLAY_USER}/run
+
 # ── coder home directories and configs ───────────────────────
 RUN mkdir -p \
         /home/${CODER_USER}/workspace \
-        /home/${CODER_USER}/.vnc \
+        /home/${CODER_USER}/logs \
         /home/${CODER_USER}/.config/code-server \
         /home/${CODER_USER}/.local/share/code-server/User \
         /home/${CODER_USER}/.local/share/code-server/extensions \
@@ -354,6 +393,11 @@ RUN printf 'source ~/.profile.d/sandbox-env.sh 2>/dev/null || true\n' \
 RUN mkdir -p /home/${MITM_USER}/.mitmproxy \
     && chown -R ${MITM_USER}:${MITM_USER} /home/${MITM_USER}/.mitmproxy \
     && chmod 700 /home/${MITM_USER}/.mitmproxy
+
+# ── display home directory ─────────────────────────────────────
+RUN mkdir -p /home/${DISPLAY_USER}/.vnc \
+    && chown -R ${DISPLAY_USER}:${DISPLAY_USER} /home/${DISPLAY_USER} \
+    && chmod 700 /home/${DISPLAY_USER}/.vnc
 
 # ── Port ──────────────────────────────────────────────────────
 # Only the noVNC pixel-stream port is exposed to the host.

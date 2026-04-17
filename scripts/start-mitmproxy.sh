@@ -30,15 +30,18 @@ error() { echo "[mitmproxy] ERROR: $*" >&2; exit 1; }
 [[ -z "${MITM_CA_DIR:-}" ]] && \
     error "Missing CA directory."
 
+MITM_PID_FILE="/home/${MITM_USER}/run/mitmproxy.pid"
+MITM_LOG_FILE="/home/${MITM_USER}/logs/mitmproxy.log"
+
 # Stop any existing mitmdump process
-if [[ -f /tmp/mitmproxy.pid ]]; then
-    OLD_PID=$(cat /tmp/mitmproxy.pid)
+if [[ -f "${MITM_PID_FILE}" ]]; then
+    OLD_PID=$(cat "${MITM_PID_FILE}")
     if kill -0 "${OLD_PID}" 2>/dev/null; then
         log "Stopping existing mitmproxy (pid ${OLD_PID})..."
         kill "${OLD_PID}"
         sleep 1
     fi
-    rm -f /tmp/mitmproxy.pid
+    rm -f "${MITM_PID_FILE}"
 fi
 
 log "Starting mitmproxy as '${MITM_USER}' (uid $(id -u ${MITM_USER}))..."
@@ -54,10 +57,10 @@ runuser -u "${MITM_USER}" -- /bin/bash -c "
         --set confdir=${MITM_CONF_DIR} \
         --set ssl_verify_upstream_trusted_confdir=/etc/ssl/certs \
         --scripts /etc/mitmproxy/allowlist.py \
-        >> /tmp/mitmproxy.log 2>&1 &
-    echo \$! > /tmp/mitmproxy.pid
+        >> ${MITM_LOG_FILE} 2>&1 &
+    echo \$! > ${MITM_PID_FILE}
 "
 
-NEW_PID=$(cat /tmp/mitmproxy.pid)
+NEW_PID=$(cat "${MITM_PID_FILE}")
 log "mitmproxy started (pid ${NEW_PID}) on :${MITM_PORT}."
 log "Running as: $(ps -p ${NEW_PID} -o user= 2>/dev/null || echo 'unknown')"

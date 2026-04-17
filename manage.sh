@@ -97,7 +97,7 @@ case "${cmd}" in
         require_running
         info "Live proxy traffic (Ctrl-C to stop):"
         podman exec "${CONTAINER}" \
-            tail -n 80 -f /tmp/mitmproxy.log \
+            tail -n 80 -f /home/mitm/logs/mitmproxy.log \
             | grep --line-buffered -E '\[(ALLOWED|BLOCKED|ALLOWLIST)\]'
         ;;
 
@@ -105,7 +105,7 @@ case "${cmd}" in
         require_running
         info "Recently blocked requests:"
         podman exec "${CONTAINER}" \
-            grep '\[BLOCKED\]' /tmp/mitmproxy.log | tail -50 \
+            grep '\[BLOCKED\]' /home/mitm/logs/mitmproxy.log | tail -50 \
             || info "None yet."
         ;;
 
@@ -113,7 +113,7 @@ case "${cmd}" in
         require_running
         info "Recently allowed requests:"
         podman exec "${CONTAINER}" \
-            grep '\[ALLOWED\]' /tmp/mitmproxy.log | tail -50 \
+            grep '\[ALLOWED\]' /home/mitm/logs/mitmproxy.log | tail -50 \
             || info "None yet."
         ;;
 
@@ -141,6 +141,8 @@ case "${cmd}" in
             ps -eo user,comm | awk '$2=="mitmdump"{print $1}' | head -1)
         CODER_CODESERVER=$(podman exec "${CONTAINER}" \
             ps -ef | grep "/usr/lib/code-server/lib/node /usr/lib/code-server --bind-addr 127.0.0.1" | awk '{print $1}' | head -1)
+        DISPLAY_VNC=$(podman exec "${CONTAINER}" \
+            ps -eo user,comm | awk '$2~/[Xx]tigervnc|[Xx]vnc/{print $1}' | head -1)
 
         [[ "${MITM_USER}" == "mitm" ]] \
             && ok "mitmproxy is running as 'mitm' ✓" \
@@ -149,6 +151,10 @@ case "${cmd}" in
         [[ "${CODER_CODESERVER}" == "coder" ]] \
             && ok "code-server is running as 'coder' ✓" \
             || warn "WARNING: code-server is running as '${CODER_CODESERVER:-unknown}' — expected 'coder'"
+
+        [[ "${DISPLAY_VNC}" == "display" ]] \
+            && ok "Xtigervnc is running as 'display' ✓" \
+            || warn "WARNING: Xtigervnc is running as '${DISPLAY_VNC:-unknown}' — expected 'display'"
         ;;
 
     firewall)

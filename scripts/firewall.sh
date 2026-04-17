@@ -4,8 +4,8 @@
 #
 # The critical security property of this script:
 #
-#   The REDIRECT exemption is granted to the 'mitm' user (uid 1001)
-#   ONLY. The 'coder' user (uid 1000) has no exemption — all of
+#   The REDIRECT exemption is granted to the 'mitm' user (uid 1101)
+#   ONLY. The 'coder' user (uid 1100) has no exemption — all of
 #   coder's outbound :443/:80 traffic is intercepted by mitmproxy
 #   without exception.
 #

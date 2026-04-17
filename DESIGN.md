@@ -9,10 +9,11 @@ connections, bypassing the proxy entirely.
 
 In v2, two separate users exist with strictly separated roles:
 
-| User   | Default UID  | Role | Network privilege |
-|--------|------|------|-------------------|
-| `coder` | 1100 | VS Code, Chromium, Claude Code, terminals | None — ALL outbound :443/:80 intercepted by mitmproxy |
-| `mitm`  | 1101 | mitmproxy only | Outbound :443/:80 permitted (gated by allowlist.py) |
+| User      | Default UID | Role | Network privilege |
+|-----------|-------------|------|-------------------|
+| `coder`   | 1100 | VS Code, Chromium, Claude Code, terminals | None — ALL outbound :443/:80 intercepted by mitmproxy |
+| `mitm`    | 1101 | mitmproxy only | Outbound :443/:80 permitted (gated by allowlist.py) |
+| `display` | 1102 | Xtigervnc, Openbox, noVNC/websockify | None — localhost only |
 
 UIDs are set at build time via `--build-arg CODER_UID=...` / `--build-arg MITM_UID=...` and
 looked up at runtime by name, so the scripts remain correct if UIDs are overridden.
@@ -58,9 +59,12 @@ podman exec mitmproxy-dev-sandbox \
 
 Expected output:
 ```
-mitm   <pid>  mitmdump
-coder  <pid>  code-server
-coder  <pid>  chromium
+mitm     <pid>  mitmdump
+display  <pid>  Xtigervnc
+display  <pid>  openbox
+display  <pid>  websockify
+coder    <pid>  code-server
+coder    <pid>  chromium
 ```
 
 ---
@@ -70,11 +74,12 @@ coder  <pid>  chromium
 ```
 Host browser → localhost:6080
                     │ pixels + input only
-               noVNC + websockify
+         noVNC + websockify (display)
                     │
-              Xtigervnc :5900
+         Xtigervnc :5900 (display)
                     │
-             Openbox (coder)
+          Openbox (display)
+          xhost → coder
              ┌──────┴───────┐
       code-server:8080   Chromium
          (coder)         (coder)

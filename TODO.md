@@ -4,7 +4,7 @@ Notes on issues and things to look-into:
       normal system certs.
     - Don't add it to the system ca-certificates?
     - Inject it only into the coder's enviroment (browser, python, vscode, etc.)?
-- [ ] Move logs and pids of sandbox services out of /tmp and into
+- [X] Move logs and pids of sandbox services out of /tmp and into
       directories controlled by the service users.
 - [ ] Always install latest code-server:
     - e.g. curl -fsSL https://code-server.dev/install.sh | sh
@@ -26,7 +26,9 @@ Notes on issues and things to look-into:
 - [ ] Update VS Code config to trust the workspace directory (and parent) automatically.
 - [ ] Generate the mitmproxy cert once, outside the image and import it.
 - [ ] Pre-bake extensions into docker image?
-- [ ] Run display services as non-root user?
+- [X] Run display services as non-root user?
+    - display user (uid 1102) now owns Xtigervnc, Openbox, noVNC/websockify.
+    - coder granted X11 access via xhost +SI:localuser:coder.
 - [ ] Re-visit the vnc path lookup in the entrypoint.sh as it has issues.
 - [ ] Support Docker as well as Podman?
 - [X] Clarify `reload-allowlist` behavior: mitmproxy 10.3.1 registers no SIGHUP
