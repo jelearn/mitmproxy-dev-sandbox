@@ -15,8 +15,10 @@ Adding rules:
 Reloading without restart:
     Edit this file, then run:
         ./manage.sh reload-allowlist
-    This copies the file into the container and sends SIGHUP
-    to mitmdump, which reloads all addon scripts.
+    This copies the file into the container. mitmproxy's script
+    addon polls loaded files every ~1 second and reloads any
+    whose mtime has changed — new rules are active within a
+    second of the copy completing, with no restart needed.
 """
 
 from mitmproxy import http
