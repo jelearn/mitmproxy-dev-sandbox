@@ -399,6 +399,13 @@ RUN mkdir -p /home/${DISPLAY_USER}/.vnc \
     && chown -R ${DISPLAY_USER}:${DISPLAY_USER} /home/${DISPLAY_USER} \
     && chmod 700 /home/${DISPLAY_USER}/.vnc
 
+# ── Openbox config (Chromium/VS Code undecorated + maximized) ──
+# COPY doesn't expand ENV vars in paths, so stage via /tmp then move.
+COPY config/openbox/rc.xml /tmp/openbox-rc.xml
+RUN mkdir -p /home/${DISPLAY_USER}/.config/openbox \
+    && mv /tmp/openbox-rc.xml /home/${DISPLAY_USER}/.config/openbox/rc.xml \
+    && chown -R ${DISPLAY_USER}:${DISPLAY_USER} /home/${DISPLAY_USER}/.config/openbox
+
 # ── Port ──────────────────────────────────────────────────────
 # Only the noVNC pixel-stream port is exposed to the host.
 # code-server (:8080) and mitmproxy (:8081) are internal only.

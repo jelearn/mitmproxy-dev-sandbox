@@ -13,7 +13,10 @@ Notes on issues and things to look-into:
 - [X] Make the noVNC/tigerVNC screen size dynamic to browser window size?
     - Initial solution was to modify the URL used to connect.
 - [ ] Expose the noVNC/tigerVNC clip-board to the host OS?
-- [ ] Undecorate the VS Code window by default.
+- [X] Undecorate the VS Code window by default.
+    - Openbox rc.xml with `<decor>no</decor><maximized>yes</maximized>` for
+      `class="Chromium"`. Staged via /tmp in Containerfile (COPY doesn't
+      expand ENV vars) then placed in display user's ~/.config/openbox/rc.xml.
 - [o] Address host to guest OS permissions mounting limitations and/or an
       easy way to control what is moved into the workspace.
     - Current workaround is the "sandbox" (link to podman volume) and the
