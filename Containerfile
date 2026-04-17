@@ -325,16 +325,8 @@ RUN printf '# Populated at container start by entrypoint.sh\n' \
     && chown ${CODER_USER}:${CODER_USER} \
         /home/${CODER_USER}/.profile.d/sandbox-env.sh
 
-# .bashrc: source env + /mnt shell guard
+# .bashrc: source env
 RUN printf 'source ~/.profile.d/sandbox-env.sh 2>/dev/null || true\n' \
-        >> /home/${CODER_USER}/.bashrc \
-    && printf '\n# Sandbox: block navigation to Windows drives\n' \
-        >> /home/${CODER_USER}/.bashrc \
-    && printf 'function cd() {\n' \
-        >> /home/${CODER_USER}/.bashrc \
-    && printf '    case "$1" in /mnt*|/mnt) echo "[sandbox] /mnt is restricted." >&2; return 1 ;; esac\n' \
-        >> /home/${CODER_USER}/.bashrc \
-    && printf '    builtin cd "$@"\n}\n' \
         >> /home/${CODER_USER}/.bashrc \
     && chown ${CODER_USER}:${CODER_USER} /home/${CODER_USER}/.bashrc
 
