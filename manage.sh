@@ -9,7 +9,8 @@ BASE_DIR=$(dirname $0)
 
 # TODO: Look these up from somewhere consitent
 CODER_USER="coder"
-WORKSPACE="/home/${CODER_USER}/workspace"
+WORKSPACE_GUEST="/home/${CODER_USER}/workspace"
+WORKSPACE_HOST="${BASE_DIR}/workspace"
 
 CONTAINER="mitmproxy-dev-sandbox"
 # TODO: Have this set by default in vnc.html or system settings
@@ -51,9 +52,14 @@ case "${cmd}" in
     restart) podman compose down && podman compose up -d; sandbox_workspace_link; ok "Restarted. ${URL}" ;;
 
     load_workspace)
-        podman exec "${CONTAINER}" find "${WORKSPACE}" -mindepth 1 -exec rm -rf "{}" \;
-        podman cp "${BASE_DIR}/workspace" "${CONTAINER}:/home/coder/"
-        podman exec "${CONTAINER}" chown -R "${CODER_USER}:${CODER_USER}" "${WORKSPACE}"
+        require_running
+        if [[ ! -d "${WORKSPACE_HOST}" ]]; then
+            error "Local workspace does not exist: ${WORKSPACE_HOST}"
+        fi
+        podman exec "${CONTAINER}" find "${WORKSPACE_GUEST}" -mindepth 1 -exec rm -rf "{}" \;
+        podman cp "${WORKSPACE_HOST}" "${CONTAINER}:/home/coder/"
+        podman exec "${CONTAINER}" chown -R "${CODER_USER}:${CODER_USER}" "${WORKSPACE_GUEST}"
+        ok "Workspace loaded."
     ;;
 
     status)
@@ -222,7 +228,7 @@ case "${cmd}" in
         echo ""
         printf "  %-22s %s\n" "build"            "Build the podman image"
         printf "  %-22s %s\n" "start"            "Start the container"
-        printf "  %-22s %s\n" "load_workspace"   "Replaces the ${CODER_USER} user's workspace in sandbox with: ${WORKSPACE}"
+        printf "  %-22s %s\n" "load_workspace"   "Replaces the ${CODER_USER} user's workspace in sandbox with: ${WORKSPACE_GUEST}"
         printf "  %-22s %s\n" "stop / restart"   "Stop or restart"
         printf "  %-22s %s\n" "status"           "Status + process user summary"
         printf "  %-22s %s\n" "logs"             "Tail all logs"
