@@ -59,8 +59,19 @@ log() { echo "[firewall] $*"; }
 log "User IDs — coder: ${CODER_UID}, mitm: ${MITM_UID}"
 log "REDIRECT exemption will be granted to mitm (${MITM_UID}) ONLY."
 
+flush-rules() {
+    # ── Flush existing rules ──────────────────────────────────────
+    iptables -t nat -F INPUT 2>/dev/null || true
+    iptables -F INPUT 2>/dev/null || true
+    iptables -t nat -F OUTPUT 2>/dev/null || true
+    iptables -F OUTPUT 2>/dev/null || true
+}
+
 case "${1:-}" in
     --list)
+        echo "=== filter INPUT ==="
+        iptables -L INPUT -n --line-numbers -v
+        echo ""
         echo "=== nat OUTPUT ==="
         iptables -t nat -L OUTPUT -n --line-numbers -v
         echo ""
@@ -70,19 +81,13 @@ case "${1:-}" in
         ;;
     --flush)
         log "Flushing all rules and resetting to ACCEPT..."
-        iptables -t nat -F OUTPUT 2>/dev/null || true
-        iptables -F OUTPUT 2>/dev/null || true
-        iptables -P OUTPUT ACCEPT
+        flush-rules
         log "Done. All outbound traffic now permitted."
         exit 0
         ;;
 esac
 
-# ── Flush existing rules ──────────────────────────────────────
-iptables -t nat -F INPUT 2>/dev/null || true
-iptables -F INPUT 2>/dev/null || true
-iptables -t nat -F OUTPUT 2>/dev/null || true
-iptables -F OUTPUT 2>/dev/null || true
+flush-rules
 
 # DROP all incoming, except for NOVNC and related connections
 iptables -A INPUT -i lo -j ACCEPT
