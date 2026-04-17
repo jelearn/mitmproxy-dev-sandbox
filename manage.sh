@@ -12,7 +12,8 @@ CODER_USER="coder"
 WORKSPACE="/home/${CODER_USER}/workspace"
 
 CONTAINER="mitmproxy-dev-sandbox"
-URL="http://localhost:6080/vnc.html"
+# TODO: Have this set by default in vnc.html or system settings
+URL="http://localhost:6080/vnc.html?resize=remote&autoconnect=true"
 
 BLU='\033[0;34m'; GRN='\033[0;32m'; YLW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 info()  { echo -e "${BLU}[manage]${NC} $*"; }

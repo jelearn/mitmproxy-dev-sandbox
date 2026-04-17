@@ -14,7 +14,7 @@ To get started:
 3) Follow the Claude Code instructions to setup/authorize it to
    access your account (copy URL into browser and paste in
    authorization code).
-4) Work on the command-line and/or go to [the local VNC instance](http://localhost:6080/vnc.html)
+4) Work on the command-line and/or go to [the local VNC instance](http://localhost:6080/vnc.html?resize=remote&autoconnect=true)
    and use VS Code.
 5) Use the `./manage.sh load_workspace` to replace the coder user's workspace
    directory with the contents of the a local `./workspace` directory.
@@ -28,7 +28,8 @@ Notes on issues and things to look-into:
 - [ ] *Finish reviewing all Claude Code generated code and content*.
 - [ ] Update the entrypoint.sh such that if the VS Code window is closed
       it's re-opened again after automatically.
-- [ ] Make the noVNC/tigerVNC screen size dynamic to browser window size?
+- [X] Make the noVNC/tigerVNC screen size dynamic to browser window size?
+    - Initial solution was to modify the URL used to connect.
 - [ ] Expose the noVNC/tigerVNC clip-board to the host OS?
 - [ ] Undecorate the VS Code window by default.
 - [ ] Address host to guest OS permissions mounting limitations and/or an
