@@ -247,7 +247,7 @@ FROM base AS code-server-install
 # Version ARGs — override at build time to pin a specific release:
 #   podman build --build-arg CODE_SERVER_VERSION=4.96.0 .
 # Leave CODE_SERVER_VERSION empty (the default) to always install the latest.
-ARG CODE_SERVER_VERSION=
+ARG CODE_SERVER_VERSION=4.109.5
 ARG CLAUDE_CODE_VERSION=latest
 
 # Use the official install script so the latest release is picked up
@@ -369,16 +369,16 @@ RUN mkdir -p \
         /home/${CODER_USER}/.profile.d \
     && chown -R ${CODER_USER}:${CODER_USER} /home/${CODER_USER}
 
-COPY config/vscode/settings.json \
+COPY config/code-server/settings.json \
     /home/${CODER_USER}/.local/share/code-server/User/settings.json
 
 RUN chown ${CODER_USER}:${CODER_USER} \
         /home/${CODER_USER}/.local/share/code-server/User/settings.json
 
 # code-server config (auth none — Chromium is inside the container)
-RUN printf 'bind-addr: 127.0.0.1:8080\nauth: none\ncert: false\n' \
-        > /home/${CODER_USER}/.config/code-server/config.yaml \
-    && chown ${CODER_USER}:${CODER_USER} \
+COPY config/code-server/config.yaml \
+    /home/${CODER_USER}/.config/code-server/config.yaml
+RUN chown ${CODER_USER}:${CODER_USER} \
         /home/${CODER_USER}/.config/code-server/config.yaml
 
 # Runtime env placeholder — populated by entrypoint.sh, cleared on stop

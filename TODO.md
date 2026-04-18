@@ -6,6 +6,30 @@ Notes on issues and things to look-into:
       multiple projects, potentially by simply cloning this base repo in
       a new directory, allowing the workspace to be separate, but all other
       volumes reused?
+- [ ] Update the `manage.sh` to ensure any changes made to configuration files
+      in the host OS are copied into the container on start.
+- [ ] Since code-server 4.96.0 a new prompt on start-up as been added to login
+      to github, this is annoying and it would be nice to avoid this.
+      The work around currently is to pin it to 4.109.5 as in 4.111.0 it seems
+      to be unavoidable.
+      None of these option suggested by Claude Code worked:
+      ```
+      "gitlens.advanced.skipOnboarding": true,
+      "gitlens.showWelcomeOnInstall": false,
+      "gitlens.showWhatsNewAfterUpgrades": false,
+      "gitlens.plusFeatures.enabled": false,
+      "gitlens.cloud.integrations.enabled": false,
+      "github.gitAuthentication": false,
+      "workbench.welcomePage.walkthroughs.openOnInstall": false,
+      "github.copilot.enable": {
+        "*": false
+      },
+      "chat.commandCenter.enabled": false,
+      "workbench.welcomePage.enabled": false,
+      "claudeCode.disableLoginPrompt": true,
+      "github.copilot.walkthroughAdded": true,
+      "chat.disableAIFeatures": true
+      ```
 - [X] Update mitmproxy to not include its own self-signed cert and only trust
       normal system certs.
     - Don't add it to the system ca-certificates?

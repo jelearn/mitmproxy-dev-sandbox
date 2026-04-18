@@ -61,8 +61,8 @@ Key fils and directories:
 | `scripts/start-mitmproxy.sh` | Starts/restarts mitmproxy as `mitm` user |
 | `config` | Contains any configuration needed for the sandbox environment |
 | `config/mitmproxy/allowlist.py` | Python mitmproxy addon: domain/path allow/block logic |
-| `config/code-server.yaml` | code-server bind address and auth settings |
-| `config/vscode/settings.json` | Any default VS Code settings to apply |
+| `config/code-server/config.yaml` | code-server bind address and auth settings |
+| `config/code-server/settings.json` | Any default VS Code settings to apply |
 
 ## AI Contributions
 

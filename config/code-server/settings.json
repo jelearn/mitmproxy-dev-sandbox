@@ -22,5 +22,5 @@
   "extensions.autoCheckUpdates": false,
   "update.mode": "none",
   "python.defaultInterpreterPath": "/usr/bin/python3",
-  "security.workspace.trust.trustedFolders": ["/home/coder/workspace"],
+  "security.workspace.trust.trustedFolders": ["/home/coder/workspace"]
 }
