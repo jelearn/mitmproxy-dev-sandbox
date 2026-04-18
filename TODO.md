@@ -12,8 +12,10 @@ Notes on issues and things to look-into:
     - Inject it only into the coder's enviroment (browser, python, vscode, etc.)?
 - [X] Move logs and pids of sandbox services out of /tmp and into
       directories controlled by the service users.
-- [ ] Always install latest code-server:
-    - e.g. curl -fsSL https://code-server.dev/install.sh | sh
+- [X] Always install latest code-server:
+    - Switched to `curl -fsSL https://code-server.dev/install.sh | sh -s --`
+      with `${CODE_SERVER_VERSION:+--version "..."}` expansion. Default ARG is
+      empty (latest); pass `--build-arg CODE_SERVER_VERSION=x.y.z` to pin.
 - [ ] Update the entrypoint.sh such that if the VS Code window is closed
       it's re-opened again after automatically.
 - [X] Make the noVNC/tigerVNC screen size dynamic to browser window size?

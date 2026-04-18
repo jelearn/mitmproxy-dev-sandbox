@@ -232,19 +232,19 @@ RUN mkdir -p /opt/mitmproxy-ca \
 #FROM node-runtime AS code-server-install
 FROM base AS code-server-install
 
-# Version ARGs — override at build time:
+# Version ARGs — override at build time to pin a specific release:
 #   podman build --build-arg CODE_SERVER_VERSION=4.96.0 .
-ARG CODE_SERVER_VERSION=4.95.3
+# Leave CODE_SERVER_VERSION empty (the default) to always install the latest.
+ARG CODE_SERVER_VERSION=
 ARG CLAUDE_CODE_VERSION=latest
 
-RUN curl -fsSL \
-    "https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server_${CODE_SERVER_VERSION}_amd64.deb" \
-    -o /tmp/code-server.deb \
-    && dpkg -i /tmp/code-server.deb \
-    && rm /tmp/code-server.deb
-
-# TODO: come back to this:
-#    && apt-get install -f -y
+# Use the official install script so the latest release is picked up
+# automatically on each build. The ${CODE_SERVER_VERSION:+--version "..."}
+# expansion passes --version only when the ARG is non-empty, allowing the
+# build to be pinned without changing this file. The install script also
+# handles dependency resolution, removing the need for a separate apt-get -f.
+RUN curl -fsSL https://code-server.dev/install.sh \
+    | sh -s -- ${CODE_SERVER_VERSION:+--version "${CODE_SERVER_VERSION}"}
 
 RUN runuser -u "${CODER_USER}" -- /bin/bash -c "cd ~/ && curl -fsSL https://claude.ai/install.sh | bash"
 
