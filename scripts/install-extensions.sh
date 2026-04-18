@@ -30,5 +30,6 @@ install_ext "dbaeumer.vscode-eslint"
 install_ext "eamodio.gitlens"
 install_ext "streetsidesoftware.code-spell-checker"
 install_ext "timonwong.shellcheck"
+install_ext "sst-dev.opencode"
 
 log "Done."

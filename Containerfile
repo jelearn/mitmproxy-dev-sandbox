@@ -397,8 +397,6 @@ RUN printf 'source ~/.profile.d/sandbox-env.sh 2>/dev/null || true\n' \
         >> /home/${CODER_USER}/.bashrc \
     && chown ${CODER_USER}:${CODER_USER} /home/${CODER_USER}/.bashrc
 
-RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/${CODER_USER}/.bashrc
-
 # .profile: source env (all login shells, interactive AND non-interactive).
 # .bashrc has an interactivity guard so it won't source sandbox-env.sh in
 # non-interactive login shells (e.g. `bash -l -c "claude"`). .profile has

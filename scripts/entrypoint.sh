@@ -153,6 +153,7 @@ export REQUESTS_CA_BUNDLE="${CODER_CA_BUNDLE}"
 export SSL_CERT_FILE="${CODER_CA_BUNDLE}"
 export CURL_CA_BUNDLE="${CODER_CA_BUNDLE}"
 export PIP_CERT="${CODER_CA_BUNDLE}"
+export PATH="/home/${CODER_USER}/.local/bin:/home/${CODER_USER}/.opencode/bin:$PATH"
 EOF
 chmod 600 "/home/${CODER_USER}/.profile.d/sandbox-env.sh"
 chown "${CODER_USER}:${CODER_USER}" "/home/${CODER_USER}/.profile.d/sandbox-env.sh"
