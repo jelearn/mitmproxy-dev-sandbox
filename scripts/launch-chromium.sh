@@ -3,8 +3,8 @@
 # launch-chromium.sh — launch Chromium inside the container
 #
 # Runs as 'coder'. Points at code-server on localhost:8080.
-# Loopback traffic bypasses the iptables REDIRECT rule, which
-# is correct — we only want to intercept external traffic.
+# Loopback traffic bypasses the iptables REDIRECT rule via an explicit
+# RETURN rule in firewall.sh — we only intercept external traffic.
 #
 # GPU / Rendering:
 #   --disable-gpu                      Disable hardware GPU acceleration. Common in

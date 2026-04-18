@@ -22,6 +22,7 @@
 #     - ACCEPT 6080 (for novnc)
 #     - ACCEPT established connections
 #   nat OUTPUT:
+#     - RETURN   127.0.0.0/8 → direct  (loopback bypasses mitmproxy)
 #     - REDIRECT :443 → :8081  (for coder)
 #     - REDIRECT :80  → :8081  (for coder)
 #   filter OUTPUT:
@@ -101,6 +102,18 @@ log "Default INPUT policy: DROP"
 # ── nat table: REDIRECT all outbound :443/:80 to mitmproxy ───
 # The --uid-owner forces any coder user's outbound
 # connections should always hits mitm.
+
+# Loopback addresses must be exempted BEFORE the coder REDIRECT rules so that
+# locally-served development servers (e.g. Node.js/npm on any port, including
+# :80/:443) are reachable directly without going through mitmproxy. Without
+# this rule the REDIRECT below would intercept coder's connections to
+# 127.0.0.1:80 and 127.0.0.1:443, routing them to mitmproxy where they would
+# be blocked by the allowlist (localhost is not an allowed upstream host).
+iptables -t nat -A OUTPUT \
+    -p tcp \
+    -d 127.0.0.0/8 \
+    -j RETURN
+log "RETURN: loopback (127.0.0.0/8) → direct (dev servers bypass mitmproxy)"
 
 iptables -t nat -A OUTPUT \
     -p tcp --dport 443 \
