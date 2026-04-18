@@ -197,6 +197,12 @@ case "${cmd}" in
         podman exec -it --user coder "${CONTAINER}" /bin/bash -l -c "cd ~/workspace && claude"
         ;;
 
+    opencode)
+        require_running
+        info "Running opencode as 'coder'..."
+        podman exec -it --user coder "${CONTAINER}" /bin/bash -l -c "cd ~/workspace && opencode"
+        ;;
+
     mitm-shell)
         require_running
         warn "Shell as 'mitm' user (proxy process owner)."
@@ -252,6 +258,7 @@ case "${cmd}" in
         echo ""
         printf "  %-22s %s\n" "shell"            "Root shell"
         printf "  %-22s %s\n" "claude"           "Run Claude Code as coder"
+        printf "  %-22s %s\n" "opencode"         "Run opencode as coder"
         printf "  %-22s %s\n" "coder-shell"      "Shell as coder"
         printf "  %-22s %s\n" "mitm-shell"       "Shell as mitm"
         printf "  %-22s %s\n" "reset-workspace"  "Delete workspace volume"

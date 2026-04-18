@@ -10,6 +10,7 @@
 #
 # Startup order:
 #   1.  Setup .claude environment files
+#   1b. Setup opencode config (copy default on first run)
 #   2.  Start mitmproxy as 'mitm'
 #   3.  Wait for CA cert, then inject it into coder's environment only
 #         a. Build coder-scoped merged CA bundle (system certs + mitmproxy cert)
@@ -66,6 +67,18 @@ elif [[ -f "/home/${CODER_USER}/.claude.json" ]]; then
     runuser -u "${CODER_USER}" -- rm /home/${CODER_USER}/.claude.json
 fi
 runuser -u "${CODER_USER}" -- ln -s /home/${CODER_USER}/.claude/claude.json /home/${CODER_USER}/.claude.json
+
+# ── Step 1b: Setup opencode config ───────────────────────────────────
+# The ~/.config/opencode directory is volume-mounted so settings persist
+# across container rebuilds. On first run the volume is empty, so copy
+# in the default config shipped inside the image.
+log "Initializing opencode config..."
+runuser -u "${CODER_USER}" -- mkdir -p "/home/${CODER_USER}/.config/opencode"
+if [[ ! -f "/home/${CODER_USER}/.config/opencode/config.json" ]]; then
+    log "Copying default opencode config."
+    cp /etc/opencode/config.json "/home/${CODER_USER}/.config/opencode/config.json"
+    chown "${CODER_USER}:${CODER_USER}" "/home/${CODER_USER}/.config/opencode/config.json"
+fi
 
 # ── Step 2: Start mitmproxy as 'mitm' ─────────────────────────
 # mitm is a no-login user (shell: /usr/sbin/nologin), so we use

@@ -13,7 +13,7 @@
 #                                    real upstream server (if allowed)
 #
 # Users:
-#   coder   — runs code-server, Chromium, Claude Code,
+#   coder   — runs code-server, Chromium, Claude Code, opencode,
 #             and all VS Code processes. Has NO special
 #             network privileges. All outbound :443/:80
 #             is intercepted by mitmproxy.
@@ -235,7 +235,7 @@ RUN mkdir -p /opt/mitmproxy-ca \
 # ════════════════════════════════════════════════════════════
 # STAGE 3a — code-server-install
 #
-# Installs code-server and Claude Code CLI.
+# Installs code-server, Claude Code CLI, and opencode CLI.
 # Independent of the mitmproxy stage — changing CODE_SERVER_VERSION
 # does not touch the mitmproxy venv, and vice versa.
 #
@@ -259,6 +259,10 @@ RUN curl -fsSL https://code-server.dev/install.sh \
     | sh -s -- ${CODE_SERVER_VERSION:+--version "${CODE_SERVER_VERSION}"}
 
 RUN runuser -u "${CODER_USER}" -- /bin/bash -c "cd ~/ && curl -fsSL https://claude.ai/install.sh | bash"
+
+# Install opencode CLI — an OpenAI-compatible AI coding agent.
+# Installs to ~/.local/bin/opencode (picked up by PATH via .bashrc export below).
+RUN runuser -u "${CODER_USER}" -- /bin/bash -c "curl -fsSL https://opencode.ai/install | bash"
 
 # apt install artifact clean-up
 RUN apt-get clean \
@@ -402,6 +406,20 @@ RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/${CODER_USER}/.bashrc
 RUN printf 'source ~/.profile.d/sandbox-env.sh 2>/dev/null || true\n' \
         >> /home/${CODER_USER}/.profile \
     && chown ${CODER_USER}:${CODER_USER} /home/${CODER_USER}/.profile
+
+# ── opencode config ───────────────────────────────────────────
+# Ship a minimal default config into a system path. entrypoint.sh
+# copies it into the coder home on first run if no config exists,
+# so the volume-persisted config survives container rebuilds.
+RUN mkdir -p /etc/opencode
+COPY config/opencode/config.json /etc/opencode/config.json
+RUN chown root:root /etc/opencode/config.json \
+    && chmod 644 /etc/opencode/config.json
+
+# Pre-create the opencode config dir so the volume mount has
+# the correct ownership when it is first initialised.
+RUN mkdir -p /home/${CODER_USER}/.config/opencode \
+    && chown -R ${CODER_USER}:${CODER_USER} /home/${CODER_USER}/.config/opencode
 
 # ── mitm config directory ─────────────────────────────────────
 RUN mkdir -p /home/${MITM_USER}/.mitmproxy \

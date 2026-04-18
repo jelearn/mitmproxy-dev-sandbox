@@ -35,6 +35,9 @@ ALLOW_RULES: list[tuple[str, str]] = [
     # Telemitry:
     #("http-intake.logs.us5.datadoghq.com", "/api/v2/logs"),
 
+    # OpenCode.ai API
+    ("opencode.ai",                   "/zen/v1/"),
+
     # npm
     ("registry.npmjs.org",            "/"),
     ("registry.yarnpkg.com",          "/"),
