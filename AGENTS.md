@@ -63,3 +63,22 @@ Key fils and directories:
 | `config/mitmproxy/allowlist.py` | Python mitmproxy addon: domain/path allow/block logic |
 | `config/code-server.yaml` | code-server bind address and auth settings |
 | `config/vscode/settings.json` | Any default VS Code settings to apply |
+
+## AI Contributions
+
+General guidance:
+
+- Before generating any code, plan your work first and make sure you review the current contents of the workspace for
+  any changes that might have been made outside your context.
+- Commits to any workspace code should be done incrementally for specific tasks or features.
+- When possible, repeatable tests should be added to the code base to confirm key design features still work
+  on an ongoing basis.
+    - When not possible, they should be noted in the TODO to address manually.
+- When an agent is writing the commit, it should follow the pattern: `${MODEL_NAME} <no-reply@${MODEL_AUTHOR_DOMAIN}>`
+    - Where `MODEL_NAME` is the full name and version of the model, and `MODEL_AUTHOR_DOMAIN` is the domain name
+      of the model's author.
+    - For example: `Claude Sonnet 4.6 <noreply@anthropic.com>`
+    - This should be done using the `--author` argument to `git commit`.
+        - For example: `git commit --author 'Claude Sonnet 4.6 <noreply@anthropic.com>'`
+- Changes should be made with instructive comments explaining why they are required so that the project is as
+  instructive as possible.
