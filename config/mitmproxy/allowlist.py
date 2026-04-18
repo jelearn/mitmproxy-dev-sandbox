@@ -67,6 +67,8 @@ ALLOW_RULES: list[tuple[str, str]] = [
     ("openvsx.eclipsecontent.org", "/Anthropic/"),
     ("openvsx.eclipsecontent.org", "/timonwong/shellcheck/"),
     ("openvsx.eclipsecontent.org", "/sst-dev/opencode/"),
+    # NPM install
+    ("registry.npmjs.org", "/"),
 ]
 
 # Build an index for O(1) host lookup

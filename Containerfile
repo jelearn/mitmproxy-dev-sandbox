@@ -142,7 +142,8 @@ RUN apt-get install -y --no-install-recommends \
     less \
     vim \
     tmux \
-    shellcheck
+    shellcheck \
+    npm
 
 # ════════════════════════════════════════════════════════════
 # display-stack
