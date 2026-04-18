@@ -34,9 +34,13 @@ Notes on issues and things to look-into:
     - Extracted inline Step 6 into `scripts/start-code-server.sh`, matching
       the pattern of start-mitmproxy.sh and start-display.sh. Script accepts
       the same positional-arg convention and can restart code-server standalone.
-- [ ] Fix entrypoint.sh (and related scripts) usage of the configured
+- [X] Fix entrypoint.sh (and related scripts) usage of the configured
       defaults for the setup (e.g. `MITM_USER`, `MITM_PORT`, etc.) so they
       are not hard-coded per file, but read from the environment.
+    - Port ARGs/ENVs added to Containerfile (MITM_PORT, VNC_PORT, NOVNC_PORT,
+      CODESERVER_PORT). All scripts now read from env with hardcoded fallbacks:
+      `${VAR:-default}`. Sub-scripts use double fallback `${1:-${VAR:-default}}`
+      so both entrypoint-driven and standalone invocations work correctly.
 - [ ] Update VS Code config to trust the workspace directory (and parent) automatically.
 - [ ] Generate the mitmproxy cert once, outside the image and import it.
 - [ ] Pre-bake extensions into docker image?

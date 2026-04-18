@@ -16,12 +16,12 @@
 
 set -euo pipefail
 
-DISPLAY_USER=${1:-display}
-CODER_USER=${2:-coder}
-DISPLAY_NUM=${3:-:1}
-VNC_PORT=${4:-5900}
-NOVNC_PORT=${5:-6080}
-SCREEN_RES=${6:-1600x900x24}
+DISPLAY_USER=${1:-${DISPLAY_USER:-display}}
+CODER_USER=${2:-${CODER_USER:-coder}}
+DISPLAY_NUM=${3:-${DISPLAY_NUM:-:1}}
+VNC_PORT=${4:-${VNC_PORT:-5900}}
+NOVNC_PORT=${5:-${NOVNC_PORT:-6080}}
+SCREEN_RES=${6:-${SCREEN_RESOLUTION:-1600x900x24}}
 VNC_PASSWORD=${7:-}
 
 log()   { echo "[display] $*" >&2; }

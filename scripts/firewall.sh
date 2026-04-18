@@ -39,8 +39,8 @@
 
 set -euo pipefail
 
-MITM_PORT=8081
-NOVNC_PORT=6080
+MITM_PORT="${MITM_PORT:-8081}"
+NOVNC_PORT="${NOVNC_PORT:-6080}"
 
 # Resolve the mitm user's uid. We look it up at runtime rather
 # than hardcoding so the script works even if the UID was changed

@@ -49,7 +49,8 @@
 
 set -euo pipefail
 
-CODE_SERVER_URL="http://127.0.0.1:8080"
+CODESERVER_PORT="${CODESERVER_PORT:-8080}"
+CODE_SERVER_URL="http://127.0.0.1:${CODESERVER_PORT}"
 
 for i in $(seq 1 30); do
     curl -sf "${CODE_SERVER_URL}" > /dev/null 2>&1 && break

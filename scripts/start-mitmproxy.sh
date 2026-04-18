@@ -13,8 +13,8 @@
 
 set -euo pipefail
 
-MITM_USER=${1:-mitm}
-MITM_PORT=${2:-8081}
+MITM_USER=${1:-${MITM_USER:-mitm}}
+MITM_PORT=${2:-${MITM_PORT:-8081}}
 MITM_CONF_DIR=${3:-"/home/${MITM_USER}/.mitmproxy"}
 MITM_CA_DIR=${4:-/opt/mitmproxy-ca}
 

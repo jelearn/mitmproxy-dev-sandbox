@@ -75,14 +75,26 @@ ARG MITM_UID=1101
 ARG DISPLAY_USER=display
 ARG DISPLAY_UID=1102
 
-# Persist user names as ENV so downstream stages can reference them
-# without re-declaring the ARGs (ARGs do not cross stage boundaries).
+# Port ARGs — override at build time to remap services:
+#   podman build --build-arg MITM_PORT=8082 .
+ARG MITM_PORT=8081
+ARG VNC_PORT=5900
+ARG NOVNC_PORT=6080
+ARG CODESERVER_PORT=8080
+
+# Persist user names and ports as ENV so downstream stages and all
+# runtime scripts can reference them without re-declaring ARGs
+# (ARGs do not cross stage boundaries, and scripts read ENV at runtime).
 ENV CODER_USER=${CODER_USER} \
     CODER_UID=${CODER_UID} \
     MITM_USER=${MITM_USER} \
     MITM_UID=${MITM_UID} \
     DISPLAY_USER=${DISPLAY_USER} \
-    DISPLAY_UID=${DISPLAY_UID}
+    DISPLAY_UID=${DISPLAY_UID} \
+    MITM_PORT=${MITM_PORT} \
+    VNC_PORT=${VNC_PORT} \
+    NOVNC_PORT=${NOVNC_PORT} \
+    CODESERVER_PORT=${CODESERVER_PORT}
 
 RUN apt-get update
 

@@ -28,15 +28,16 @@ set -euo pipefail
 
 BASE_DIR=$(dirname $0)
 
-CODER_USER="coder"
-MITM_USER="mitm"
-DISPLAY_USER="display"
-DISPLAY_NUM=":1"
-VNC_PORT=5900
-NOVNC_PORT=6080
+CODER_USER="${CODER_USER:-coder}"
+MITM_USER="${MITM_USER:-mitm}"
+DISPLAY_USER="${DISPLAY_USER:-display}"
+DISPLAY_NUM="${DISPLAY_NUM:-:1}"
+VNC_PORT="${VNC_PORT:-5900}"
+NOVNC_PORT="${NOVNC_PORT:-6080}"
 SCREEN_RES="${SCREEN_RESOLUTION:-1600x900x24}"
-WORKSPACE="/home/${CODER_USER}/workspace"
-MITM_PORT=8081
+WORKSPACE="${WORKSPACE:-/home/${CODER_USER}/workspace}"
+MITM_PORT="${MITM_PORT:-8081}"
+CODESERVER_PORT="${CODESERVER_PORT:-8080}"
 
 # mitmproxy writes its CA cert to this shared directory.
 # Owned by mitm (write), world-readable (read by coder/root).
@@ -185,7 +186,7 @@ log "Display services up (noVNC pid ${NOVNC_PID})."
 
 # ── Step 6: Start code-server ─────────────────────────────────
 "${BASE_DIR}/start-code-server.sh" \
-    "${CODER_USER}" "${WORKSPACE}" "${DISPLAY_NUM}" 8080
+    "${CODER_USER}" "${WORKSPACE}" "${DISPLAY_NUM}" "${CODESERVER_PORT}"
 
 # ── Step 7: Install VS Code extensions (first run only) ───────
 EXT_STAMP="/home/${CODER_USER}/.local/share/code-server/.extensions-installed"

@@ -13,10 +13,10 @@
 
 set -euo pipefail
 
-CODER_USER=${1:-coder}
-WORKSPACE=${2:-/home/${CODER_USER}/workspace}
-DISPLAY_NUM=${3:-:1}
-CODESERVER_PORT=${4:-8080}
+CODER_USER=${1:-${CODER_USER:-coder}}
+WORKSPACE=${2:-${WORKSPACE:-/home/${CODER_USER}/workspace}}
+DISPLAY_NUM=${3:-${DISPLAY_NUM:-:1}}
+CODESERVER_PORT=${4:-${CODESERVER_PORT:-8080}}
 
 log()   { echo "[code-server] $*"; }
 error() { echo "[code-server] ERROR: $*" >&2; exit 1; }
