@@ -1,5 +1,11 @@
 Notes on issues and things to look-into:
 
+- [ ] Update the firewall rules to ensure that all users are limited to the
+      minimum network accesses needed to perform their functions.
+- [ ] Develop a method to easily create multiple sanboxed environments for
+      multiple projects, potentially by simply cloning this base repo in
+      a new directory, allowing the workspace to be separate, but all other
+      volumes reused?
 - [X] Update mitmproxy to not include its own self-signed cert and only trust
       normal system certs.
     - Don't add it to the system ca-certificates?
