@@ -310,6 +310,7 @@ COPY scripts/entrypoint.sh           /scripts/entrypoint.sh
 COPY scripts/firewall.sh             /scripts/firewall.sh
 COPY scripts/install-extensions.sh  /scripts/install-extensions.sh
 COPY scripts/launch-chromium.sh     /scripts/launch-chromium.sh
+COPY scripts/start-code-server.sh   /scripts/start-code-server.sh
 COPY scripts/start-display.sh       /scripts/start-display.sh
 COPY scripts/start-mitmproxy.sh     /scripts/start-mitmproxy.sh
 RUN chmod +x \
@@ -317,6 +318,7 @@ RUN chmod +x \
         /scripts/firewall.sh \
         /scripts/install-extensions.sh \
         /scripts/launch-chromium.sh \
+        /scripts/start-code-server.sh \
         /scripts/start-display.sh \
         /scripts/start-mitmproxy.sh
 

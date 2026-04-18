@@ -30,7 +30,10 @@ Notes on issues and things to look-into:
     - Current workaround is the "sandbox" (link to podman volume) and the
       `./manage.sh load_workspace`command to load the contents of the local
       "workspace" directory into the workspace volume.
-- [ ] Fix entrypoint.sh, which should call per-service scripts, but doesn't.
+- [X] Fix entrypoint.sh, which should call per-service scripts, but doesn't.
+    - Extracted inline Step 6 into `scripts/start-code-server.sh`, matching
+      the pattern of start-mitmproxy.sh and start-display.sh. Script accepts
+      the same positional-arg convention and can restart code-server standalone.
 - [ ] Fix entrypoint.sh (and related scripts) usage of the configured
       defaults for the setup (e.g. `MITM_USER`, `MITM_PORT`, etc.) so they
       are not hard-coded per file, but read from the environment.

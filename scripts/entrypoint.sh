@@ -184,27 +184,8 @@ NOVNC_PID=$("${BASE_DIR}/start-display.sh" \
 log "Display services up (noVNC pid ${NOVNC_PID})."
 
 # ── Step 6: Start code-server ─────────────────────────────────
-log "Starting code-server..."
-mkdir -p "${WORKSPACE}"
-chown "${CODER_USER}:${CODER_USER}" "${WORKSPACE}"
-
-DISPLAY="${DISPLAY_NUM}" runuser -u "${CODER_USER}" -- bash -c "
-    source /home/${CODER_USER}/.profile.d/sandbox-env.sh
-    code-server \
-        --bind-addr 127.0.0.1:8080 \
-        --user-data-dir /home/${CODER_USER}/.local/share/code-server \
-        --extensions-dir /home/${CODER_USER}/.local/share/code-server/extensions \
-        --auth none \
-        '${WORKSPACE}' \
-        >> /home/${CODER_USER}/logs/code-server.log 2>&1 &
-"
-
-# Wait until code-server is actually responding
-for i in $(seq 1 30); do
-    curl -sf http://127.0.0.1:8080 > /dev/null 2>&1 && break
-    sleep 1
-done
-log "code-server ready."
+"${BASE_DIR}/start-code-server.sh" \
+    "${CODER_USER}" "${WORKSPACE}" "${DISPLAY_NUM}" 8080
 
 # ── Step 7: Install VS Code extensions (first run only) ───────
 EXT_STAMP="/home/${CODER_USER}/.local/share/code-server/.extensions-installed"
