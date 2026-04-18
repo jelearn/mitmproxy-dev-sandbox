@@ -6,6 +6,13 @@ Notes on issues and things to look-into:
       multiple projects, potentially by simply cloning this base repo in
       a new directory, allowing the workspace to be separate, but all other
       volumes reused?
+    - This should include including additional allow-rules, and extra apt install
+      instructions.
+    - Potentially also defining them as simple lists in configuration files.
+- [ ] Update the mitmproxy allow list feature to provide additional controls
+      over HTTP actions, HTTP/HTT.
+- [ ] Update the mitmproxy allow list feature to provide additional controls
+      over HTTP actions, HTTP/HTTPS.
 - [ ] Update the `manage.sh` to ensure any changes made to configuration files
       in the host OS are copied into the container on start.
 - [ ] Since code-server 4.96.0 a new prompt on start-up as been added to login
