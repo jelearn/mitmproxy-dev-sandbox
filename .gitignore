@@ -2,6 +2,7 @@
 *~
 *.swp
 *.swo
+.vscode
 
 # Link to the sandbox workspace volume
 sandbox
@@ -11,3 +12,6 @@ workspace
 # local settings
 .env
 mitmproxy-sandbox-ca.pem
+
+# Claude Code local settings (machine-specific, not for version control)
+.claude
