@@ -5,16 +5,29 @@
 
 set -euo pipefail
 
-BASE_DIR=$(dirname $0)
+BASE_DIR=$(dirname "$0")
+BASE_PATH=$(readlink -f "${BASE_DIR}")
 
 # TODO: Look these up from somewhere consitent
 CODER_USER="coder"
 WORKSPACE_GUEST="/home/${CODER_USER}/workspace"
 WORKSPACE_HOST="${BASE_DIR}/workspace"
 
-CONTAINER="mitmproxy-dev-sandbox"
+if [[ -f "${BASE_DIR}/.env" ]]; then
+    source "${BASE_DIR}/.env"
+fi
+
+AGENT_SANDBOX_PORT="${AGENT_SANDBOX_PORT:-6080}"
+
+# We're using podman compose up, so the directory name
+# of the repository is used as the container prefix.
+CONTAINER_PREFIX=$(basename "${BASE_PATH}")
+# Based on the "services" in the compose.yml the full
+# container name will be a concatenation of the above
+# and "_1"
+CONTAINER_NAME=${AGENT_SANDBOX_NAME:-${CONTAINER_PREFIX}}
 # TODO: Have this set by default in vnc.html or system settings
-URL="http://localhost:6080/vnc.html?resize=remote&autoconnect=true"
+URL="http://localhost:${AGENT_SANDBOX_PORT}/vnc.html?resize=remote&autoconnect=true"
 
 BLU='\033[0;34m'; GRN='\033[0;32m'; YLW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 info()  { echo -e "${BLU}[manage]${NC} $*"; }
@@ -23,13 +36,14 @@ warn()  { echo -e "${YLW}[manage]${NC} $*"; }
 error() { echo -e "${RED}[manage]${NC} $*" >&2; exit 1; }
 
 require_running() {
-    podman ps --format '{{.Names}}' | grep -q "^${CONTAINER}$" \
+    podman ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$" \
         || error "Container not running. Run: ./manage.sh start"
 }
 
 sandbox_workspace_link() {
     rm -f sandbox
-    ln -fs "$(podman volume inspect --format '{{.Mountpoint}}' mitmproxy-dev-sandbox_workspace_data)" sandbox
+    SANDBOX_PATH=$(podman volume inspect --format '{{.Mountpoint}}' "${CONTAINER_PREFIX}_workspace_data")
+    ln -fs "${SANDBOX_PATH}" sandbox
 }
 
 cmd="${1:-help}"
@@ -59,26 +73,26 @@ case "${cmd}" in
         # NOTE: The deletion method using rm -rf means that a directory may be found
         # and still deleted, so we ignore all failures, then check that everything is gone after
         # to be sure.
-        podman exec "${CONTAINER}" find "${WORKSPACE_GUEST}" -mindepth 1 -exec rm -rf "{}" \; || true
-        podman exec -e WORKSPACE_GUEST="${WORKSPACE_GUEST}" "${CONTAINER}" \
+        podman exec "${CONTAINER_NAME}" find "${WORKSPACE_GUEST}" -mindepth 1 -exec rm -rf "{}" \; || true
+        podman exec -e WORKSPACE_GUEST="${WORKSPACE_GUEST}" "${CONTAINER_NAME}" \
             sh -c 'test -z "$(find "${WORKSPACE_GUEST}" -mindepth 1 -print -quit )"' \
             || error "Workspace not fully removed."
-        podman cp "${WORKSPACE_HOST}" "${CONTAINER}:/home/coder/"
-        podman exec "${CONTAINER}" chown -R "${CODER_USER}:${CODER_USER}" "${WORKSPACE_GUEST}"
+        podman cp "${WORKSPACE_HOST}" "${CONTAINER_NAME}:/home/coder/"
+        podman exec "${CONTAINER_NAME}" chown -R "${CODER_USER}:${CODER_USER}" "${WORKSPACE_GUEST}"
         ok "Workspace loaded."
     ;;
 
     status)
-        if podman ps --format '{{.Names}}' | grep -q "^${CONTAINER}$"; then
+        if podman ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
             ok "RUNNING"
-            podman ps --filter "name=${CONTAINER}" \
+            podman ps --filter "name=${CONTAINER_NAME}" \
                 --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
             echo ""; info "noVNC: ${URL}"
 
             # Show which user each key process is running as
             echo ""
             info "Process user verification:"
-            podman exec "${CONTAINER}" \
+            podman exec "${CONTAINER_NAME}" \
                 ps -eo user,pid,comm \
                 | awk '$3~/mitmdump|code-server|chromium/{printf "  %-12s pid=%-6s %s\n",$1,$2,$3}'
         else
@@ -88,7 +102,7 @@ case "${cmd}" in
 
     logs)
         require_running
-        podman logs -f "${CONTAINER}"
+        podman logs -f "${CONTAINER_NAME}"
         ;;
 
     # ── Proxy commands ────────────────────────────────────────
@@ -96,7 +110,7 @@ case "${cmd}" in
     proxy-log)
         require_running
         info "Live proxy traffic (Ctrl-C to stop):"
-        podman exec "${CONTAINER}" \
+        podman exec "${CONTAINER_NAME}" \
             tail -n 80 -f /home/mitm/logs/mitmproxy.log \
             | grep --line-buffered -E '\[(ALLOWED|BLOCKED|ALLOWLIST)\]'
         ;;
@@ -104,7 +118,7 @@ case "${cmd}" in
     blocked)
         require_running
         info "Recently blocked requests:"
-        podman exec "${CONTAINER}" \
+        podman exec "${CONTAINER_NAME}" \
             grep '\[BLOCKED\]' /home/mitm/logs/mitmproxy.log | tail -50 \
             || info "None yet."
         ;;
@@ -112,7 +126,7 @@ case "${cmd}" in
     allowed)
         require_running
         info "Recently allowed requests:"
-        podman exec "${CONTAINER}" \
+        podman exec "${CONTAINER_NAME}" \
             grep '\[ALLOWED\]' /home/mitm/logs/mitmproxy.log | tail -50 \
             || info "None yet."
         ;;
@@ -121,7 +135,7 @@ case "${cmd}" in
         require_running
         info "Copying updated allowlist into container..."
         podman cp "${BASE_DIR}/config/mitmproxy/allowlist.py" \
-            "${CONTAINER}:/etc/mitmproxy/allowlist.py"
+            "${CONTAINER_NAME}:/etc/mitmproxy/allowlist.py"
         sleep 2
         ok "Allowlist reloaded (mitmproxy file-watch picks up changes within ~1s)."
         info "Run './manage.sh proxy-log' to confirm the new rules are active."
@@ -132,16 +146,16 @@ case "${cmd}" in
         require_running
         info "Verifying process ownership..."
         echo ""
-        podman exec "${CONTAINER}" \
+        podman exec "${CONTAINER_NAME}" \
             ps -eo user,pid,ppid,comm,args \
             | grep -E 'USER|mitmdump|code-server|chromium|tigervnc|websockify|openbox'
         echo ""
 
-        MITM_USER=$(podman exec "${CONTAINER}" \
+        MITM_USER=$(podman exec "${CONTAINER_NAME}" \
             ps -eo user,comm | awk '$2=="mitmdump"{print $1}' | head -1)
-        CODER_CODESERVER=$(podman exec "${CONTAINER}" \
+        CODER_CODESERVER=$(podman exec "${CONTAINER_NAME}" \
             ps -ef | grep "/usr/lib/code-server/lib/node /usr/lib/code-server --bind-addr 127.0.0.1" | awk '{print $1}' | head -1)
-        DISPLAY_VNC=$(podman exec "${CONTAINER}" \
+        DISPLAY_VNC=$(podman exec "${CONTAINER_NAME}" \
             ps -eo user,comm | awk '$2~/[Xx]tigervnc|[Xx]vnc/{print $1}' | head -1)
 
         [[ "${MITM_USER}" == "mitm" ]] \
@@ -160,19 +174,19 @@ case "${cmd}" in
     firewall)
         require_running
         info "iptables filter INPUT:"
-        podman exec "${CONTAINER}" iptables -L INPUT -n --line-numbers -v
+        podman exec "${CONTAINER_NAME}" iptables -L INPUT -n --line-numbers -v
         echo ""
         info "iptables nat OUTPUT (REDIRECT rules):"
-        podman exec "${CONTAINER}" iptables -t nat -L OUTPUT -n --line-numbers -v
+        podman exec "${CONTAINER_NAME}" iptables -t nat -L OUTPUT -n --line-numbers -v
         echo ""
         info "iptables filter OUTPUT:"
-        podman exec "${CONTAINER}" iptables -L OUTPUT -n --line-numbers -v
+        podman exec "${CONTAINER_NAME}" iptables -L OUTPUT -n --line-numbers -v
         ;;
 
     ca-cert)
         require_running
         info "Exporting mitmproxy CA cert to ./mitmproxy-sandbox-ca.pem"
-        podman exec "${CONTAINER}" cat /opt/mitmproxy-ca/mitmproxy-ca-cert.pem \
+        podman exec "${CONTAINER_NAME}" cat /opt/mitmproxy-ca/mitmproxy-ca-cert.pem \
             > ./mitmproxy-sandbox-ca.pem
         ok "Saved. Do NOT import this into your host browser trust store."
         ;;
@@ -182,31 +196,31 @@ case "${cmd}" in
     shell)
         require_running
         warn "Root shell in container."
-        podman exec -it "${CONTAINER}" /bin/bash
+        podman exec -it "${CONTAINER_NAME}" /bin/bash
         ;;
 
     coder-shell)
         require_running
         info "Shell as 'coder'..."
-        podman exec -it --user coder "${CONTAINER}" /bin/bash -l -c "cd ~/workspace; bash"
+        podman exec -it --user coder "${CONTAINER_NAME}" /bin/bash -l -c "cd ~/workspace; bash"
         ;;
 
     claude)
         require_running
         info "Running claude as 'coder'..."
-        podman exec -it --user coder "${CONTAINER}" /bin/bash -l -c "cd ~/workspace && claude"
+        podman exec -it --user coder "${CONTAINER_NAME}" /bin/bash -l -c "cd ~/workspace && claude"
         ;;
 
     opencode)
         require_running
         info "Running opencode as 'coder'..."
-        podman exec -it --user coder "${CONTAINER}" /bin/bash -l -c "cd ~/workspace && opencode"
+        podman exec -it --user coder "${CONTAINER_NAME}" /bin/bash -l -c "cd ~/workspace && opencode"
         ;;
 
     mitm-shell)
         require_running
         warn "Shell as 'mitm' user (proxy process owner)."
-        podman exec -it --user mitm "${CONTAINER}" /bin/bash
+        podman exec -it --user mitm "${CONTAINER_NAME}" /bin/bash
         ;;
 
     # ── Volume management ─────────────────────────────────────
@@ -215,7 +229,7 @@ case "${cmd}" in
         warn "Deletes all workspace files."
         read -rp "Sure? [y/N] " c; [[ "${c,,}" == "y" ]] || exit 0
         podman compose down
-        podman volume rm "${CONTAINER}_workspace_data" 2>/dev/null || true
+        podman volume rm "${CONTAINER_NAME}_workspace_data" 2>/dev/null || true
         ok "Workspace removed."
         ;;
 
@@ -224,7 +238,7 @@ case "${cmd}" in
         warn "A new CA is generated on next start and reinstalled into Chromium."
         read -rp "Sure? [y/N] " c; [[ "${c,,}" == "y" ]] || exit 0
         podman compose down
-        podman volume rm "${CONTAINER}_mitmproxy_ca" 2>/dev/null || true
+        podman volume rm "${CONTAINER_NAME}_mitmproxy_ca" 2>/dev/null || true
         ok "CA volume removed."
         ;;
 

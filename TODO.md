@@ -1,14 +1,19 @@
 Notes on issues and things to look-into:
 
-- [ ] Update the firewall rules to ensure that all users are limited to the
+- [ ] Explore wireshark capture of coder to mitmproxy to internet traffic
+      to verify it works as one expects.
+- [ ] Work on updating the AGENTS.md to ensure all scripts are checked though
+      appropriate linting or syntax check utilties: e.g. pylint & shellcheck
+- [X] Update the firewall rules to ensure that all users are limited to the
       minimum network accesses needed to perform their functions.
-- [ ] Develop a method to easily create multiple sanboxed environments for
+- [X] Develop a method to easily create multiple sanboxed environments for
       multiple projects, potentially by simply cloning this base repo in
       a new directory, allowing the workspace to be separate, but all other
       volumes reused?
     - This should include including additional allow-rules, and extra apt install
       instructions.
     - Potentially also defining them as simple lists in configuration files.
+    - DONE:  This can be done by simply cloning the repo to another directory.
 - [ ] Update the mitmproxy allow list feature to provide additional controls
       over HTTP actions, HTTP/HTT.
 - [ ] Update the mitmproxy allow list feature to provide additional controls
@@ -68,8 +73,8 @@ Notes on issues and things to look-into:
 - [X] Fix entrypoint.sh (and related scripts) usage of the configured
       defaults for the setup (e.g. `MITM_USER`, `MITM_PORT`, etc.) so they
       are not hard-coded per file, but read from the environment.
-    - Port ARGs/ENVs added to Containerfile (MITM_PORT, VNC_PORT, NOVNC_PORT,
-      CODESERVER_PORT). All scripts now read from env with hardcoded fallbacks:
+    - Port ARGs/ENVs added to Containerfile (`MITM_PORT`, `VNC_PORT`, `NOVNC_PORT`,
+      `CODESERVER_PORT`). All scripts now read from env with hardcoded fallbacks:
       `${VAR:-default}`. Sub-scripts use double fallback `${1:-${VAR:-default}}`
       so both entrypoint-driven and standalone invocations work correctly.
 - [ ] Update VS Code config to trust the workspace directory (and parent) automatically.

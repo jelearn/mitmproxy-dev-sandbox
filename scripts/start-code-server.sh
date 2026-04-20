@@ -3,10 +3,6 @@
 # start-code-server.sh — start code-server as the 'coder' user
 #
 # Called by entrypoint.sh during container startup.
-# Can also be called manually to restart code-server without
-# restarting the whole container:
-#
-#   podman exec mitmproxy-dev-sandbox /scripts/start-code-server.sh
 #
 # Must be run as root (it uses runuser to drop to coder).
 # =============================================================

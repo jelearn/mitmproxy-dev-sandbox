@@ -43,8 +43,8 @@
 #   podman build ...                               → full build (uses cache)
 #
 # Container naming:
-#   The image is named at build time:  podman build -t myname .
-#   The container is named at runtime: podman run --name mycontainer
+#   Typically the image is named at build time:  podman build -t myname .
+#   Then referenced when starting a container (also named at runtime): podman run --name myname
 #   Or via compose.yml:         container_name: mitmproxy-dev-sandbox
 #   You cannot set a container name inside a Containerfile — it is a
 #   runtime concept, not a build-time one.
@@ -64,6 +64,7 @@
 # ════════════════════════════════════════════════════════════
 FROM debian:bookworm-slim AS base
 
+ARG AGENT_SANDBOX_PORT=6080
 ARG DEBIAN_FRONTEND=noninteractive
 
 # User identity ARGs — override at build time if your host UIDs differ:
@@ -440,14 +441,6 @@ RUN mkdir -p /home/${DISPLAY_USER}/.config/openbox \
 # ── Port ──────────────────────────────────────────────────────
 # Only the noVNC pixel-stream port is exposed to the host.
 # code-server (:8080) and mitmproxy (:8081) are internal only.
-EXPOSE 6080
-
-# ── Image labels ──────────────────────────────────────────────
-# Visible via: podman inspect <image> or podman image ls --format
-# Note: container_name is set in compose.yml, not here.
-LABEL org.opencontainers.image.title="mitmproxy-dev-sandbox" \
-      org.opencontainers.image.description="VS Code sandbox — code-server + Chromium + noVNC + mitmproxy allowlist" \
-      org.opencontainers.image.base.name="debian:bookworm-slim" \
-      org.opencontainers.image.version="2.0"
+EXPOSE ${AGENT_SANDBOX_PORT}
 
 ENTRYPOINT ["/scripts/entrypoint.sh"]

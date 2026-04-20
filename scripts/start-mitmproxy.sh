@@ -3,10 +3,6 @@
 # start-mitmproxy.sh — (re)start mitmproxy as the 'mitm' user
 #
 # Called by entrypoint.sh during container startup.
-# Can also be called manually to restart mitmproxy without
-# restarting the whole container:
-#
-#   podman exec mitmproxy-dev-sandbox /scripts/start-mitmproxy.sh
 #
 # Must be run as root (it uses runuser to drop to mitm).
 # =============================================================

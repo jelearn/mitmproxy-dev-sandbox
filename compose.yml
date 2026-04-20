@@ -2,10 +2,14 @@ version: "3.9"
 
 services:
   composed-sandbox:
+    # TODO: Ideally, somthing like this:
+    #container_name: ${AGENT_SANDBOX_NAME:-${COMPOSE_PROJECT_NAME}}
+    # NOTE: podman compose does not fully implement the interpolation parser
+    # so the above is not possible, so the work around is:
+    container_name: ${AGENT_SANDBOX_NAME:-mitmproxy-dev-sandbox}
     build:
       context: .
       dockerfile: Containerfile
-    container_name: mitmproxy-dev-sandbox
     # disable ipv6 to focus on ipv4 iptable rules
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=1
@@ -19,7 +23,7 @@ services:
     security_opt:
       - no-new-privileges:true
     ports:
-      - "127.0.0.1:6080:6080"
+      - "127.0.0.1:${AGENT_SANDBOX_PORT:-6080}:6080"
     environment:
       - VNC_PASSWORD=${VNC_PASSWORD:-}
       - SCREEN_RESOLUTION=${SCREEN_RESOLUTION:-1600x900x24}

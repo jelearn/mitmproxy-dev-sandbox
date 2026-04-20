@@ -4,9 +4,6 @@
 #
 # Handles Xtigervnc, Openbox, and noVNC/websockify.
 # Called by entrypoint.sh during container startup.
-# Can also be called manually to restart display services:
-#
-#   podman exec mitmproxy-dev-sandbox /scripts/start-display.sh
 #
 # Must be run as root (it uses runuser to drop to display/coder).
 #

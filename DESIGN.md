@@ -50,13 +50,6 @@ After starting the container:
 This checks that `mitmdump` is running as `mitm` and `code-server` is
 running as `coder`, and prints the full process list for inspection.
 
-You can also confirm manually:
-
-```bash
-podman exec mitmproxy-dev-sandbox \
-    ps -eo user,pid,comm | grep -E 'mitmdump|code-server|chromium'
-```
-
 Expected output:
 ```
 mitm     <pid>  mitmdump

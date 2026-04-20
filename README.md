@@ -6,7 +6,7 @@ container executes on your host OS.
 
 ## TLDR;
 
-To get started:
+To get started, after cloning this repo:
 
 0) Install `podman`.
 1) Run `./manage.sh start` to start the containerized sandbox environment.
@@ -14,12 +14,37 @@ To get started:
 3) Follow the Claude Code instructions to setup/authorize it to
    access your account (copy URL into browser and paste in
    authorization code).
-4) Work on the command-line and/or go to [the local VNC instance](http://localhost:6080/vnc.html?resize=remote&autoconnect=true)
-   and use VS Code.
-5) Use the `./manage.sh load_workspace` to replace the coder user's workspace
-   directory with the contents of the a local `./workspace` directory.
-6) The contents of the sandbox's workspace directory will be linked to from the
-   `./sandbox` directory (created after `start`).
+4) Work on the command-line and/or go to the `code-server` IDE in a browser.
+    - Basic command-line: `./manage.sh coder-shell`
+    - Agent options:
+        - `./manage.sh claude`
+        - `./manage.sh opencode`
+    - `code-server` via the [local VNC instance](http://localhost:6080/vnc.html?resize=remote&autoconnect=true)
+5) To access to the container's sandbox workspace, you have two options which
+   depends on your setup.
+    - For the most permissive setups, you may have read-write access to: `./sandbox`
+      Which was created after `start` and is a link to the volume mount for the
+      sandbox environments directory: `/home/coder/workspace`
+    - Otherwise, for more restrictive environments it may be read-only, in which
+      case you can use the `./manage.sh load_workspace` command to replace the coder
+      user's workspace directory with the contents of the a local `./workspace` directory.
+
+### Multiple Sandboxes
+
+If you need multiple environments at the same time, simply clone this repo into another
+directory and an entirely separate sandbox can be used in the same way.
+
+In this scenario, you'll need to edit your local `.env` file in the checkout
+such that:
+- `AGENT_SANDBOX_NAME` is set to a unique name for the new sandbox container.
+- `AGENT_SANDBOX_PORT` is set to an unused port on your host other than 6080.
+
+e.g.
+
+```
+AGENT_SANDBOX_NAME=alt-sandbox
+AGENT_SANDBOX_PORT=7080
+```
 
 ## Layout
 
