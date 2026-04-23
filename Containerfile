@@ -62,40 +62,47 @@
 #
 # Rebuild trigger: OS package list changes, user UID changes.
 # ════════════════════════════════════════════════════════════
-FROM debian:bookworm-slim AS base
 
-ARG AGENT_SANDBOX_PORT=6080
-ARG DEBIAN_FRONTEND=noninteractive
-
+# NOTE: This is the full list of ARGs used in the build, however
+# they are repeated again below per lay as needed in order to support
+# podman 4.9.3 as a minimum version (current default on Ubuntu).
+# TODO: Re-evaluate to support a more modern version 5.x that doesn't
+# require the duplication.
+#
 # User identity ARGs — override at build time if your host UIDs differ:
 #   podman build --build-arg CODER_UID=1100 --build-arg MITM_UID=1101 .
-ARG CODER_USER=coder
-ARG CODER_UID=1100
-ARG MITM_USER=mitm
-ARG MITM_UID=1101
-ARG DISPLAY_USER=display
-ARG DISPLAY_UID=1102
-
+#ARG CODER_USER=coder
+#ARG CODER_UID=1100
+#ARG MITM_USER=mitm
+#ARG MITM_UID=1101
+#ARG DISPLAY_USER=display
+#ARG DISPLAY_UID=1102
+#
 # Port ARGs — override at build time to remap services:
 #   podman build --build-arg MITM_PORT=8082 .
-ARG MITM_PORT=8081
-ARG VNC_PORT=5900
-ARG NOVNC_PORT=6080
-ARG CODESERVER_PORT=8080
-
+#ARG AGENT_SANDBOX_PORT=6080
+#ARG MITM_PORT=8081
+#ARG VNC_PORT=5900
+#ARG NOVNC_PORT=6080
+#ARG CODESERVER_PORT=8080
+#
 # Persist user names and ports as ENV so downstream stages and all
 # runtime scripts can reference them without re-declaring ARGs
 # (ARGs do not cross stage boundaries, and scripts read ENV at runtime).
-ENV CODER_USER=${CODER_USER} \
-    CODER_UID=${CODER_UID} \
-    MITM_USER=${MITM_USER} \
-    MITM_UID=${MITM_UID} \
-    DISPLAY_USER=${DISPLAY_USER} \
-    DISPLAY_UID=${DISPLAY_UID} \
-    MITM_PORT=${MITM_PORT} \
-    VNC_PORT=${VNC_PORT} \
-    NOVNC_PORT=${NOVNC_PORT} \
-    CODESERVER_PORT=${CODESERVER_PORT}
+#ENV CODER_USER=${CODER_USER} \
+#    CODER_UID=${CODER_UID} \
+#    MITM_USER=${MITM_USER} \
+#    MITM_UID=${MITM_UID} \
+#    DISPLAY_USER=${DISPLAY_USER} \
+#    DISPLAY_UID=${DISPLAY_UID} \
+#    MITM_PORT=${MITM_PORT} \
+#    VNC_PORT=${VNC_PORT} \
+#    NOVNC_PORT=${NOVNC_PORT} \
+#    CODESERVER_PORT=${CODESERVER_PORT}
+
+FROM debian:bookworm-slim AS base
+
+ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update
 
@@ -173,21 +180,35 @@ RUN apt-get clean \
     && apt autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
+FROM base as base-user
+
+# TODO: decide if minimum supported podman version should be 4.9.3 or 5.x.
+# User identity ARGs — override at build time if your host UIDs differ:
+#   podman build --build-arg CODER_UID=1100 --build-arg MITM_UID=1101 .
+ARG CODER_USER=coder
+ARG CODER_UID=1100
+ARG MITM_USER=mitm
+ARG MITM_UID=1101
+ARG DISPLAY_USER=display
+ARG DISPLAY_UID=1102
+
 # ── Create service users ──────────────────────────────────────
 # coder: unprivileged, real home, bash shell (VS Code terminals need it)
+# mitm, display: no login
+# all: no sudo
 RUN useradd \
         --uid "${CODER_UID}" \
         --create-home \
         --home-dir "/home/${CODER_USER}" \
         --shell /bin/bash \
-        --comment "VS Code sandbox user — no sudo" \
+        --comment "VS Code sandbox user" \
         "${CODER_USER}" \
     && useradd \
         --uid "${MITM_UID}" \
         --create-home \
         --home-dir "/home/${MITM_USER}" \
         --shell /usr/sbin/nologin \
-        --comment "mitmproxy service account — no sudo, no login" \
+        --comment "mitmproxy service account" \
         "${MITM_USER}" \
     && useradd \
         --uid "${DISPLAY_UID}" \
@@ -204,7 +225,6 @@ RUN useradd \
 RUN mkdir -p /opt/mitmproxy-ca \
     && chown "${MITM_USER}:${MITM_USER}" /opt/mitmproxy-ca \
     && chmod 755 /opt/mitmproxy-ca
-
 
 # TODO: Decide which is better to use npm or curl install for claude code
 # ════════════════════════════════════════════════════════════
@@ -244,7 +264,10 @@ RUN mkdir -p /opt/mitmproxy-ca \
 # Rebuild trigger: CODE_SERVER_VERSION or CLAUDE_CODE_VERSION changes.
 # ════════════════════════════════════════════════════════════
 #FROM node-runtime AS code-server-install
-FROM base AS code-server-install
+FROM base-user AS code-server-install
+
+# User identity ARGs — override at build time if your host UIDs differ..
+ARG CODER_USER=coder
 
 # Version ARGs — override at build time to pin a specific release:
 #   podman build --build-arg CODE_SERVER_VERSION=4.96.0 .
@@ -284,7 +307,7 @@ RUN apt-get clean \
 #
 # Rebuild trigger: MITMPROXY_VERSION changes.
 # ════════════════════════════════════════════════════════════
-FROM base AS mitmproxy-install
+FROM base-user AS mitmproxy-install
 
 ARG MITMPROXY_VERSION=10.3.1
 
@@ -292,11 +315,6 @@ RUN python3 -m venv /opt/mitmproxy-venv \
     && /opt/mitmproxy-venv/bin/pip install \
         --no-cache-dir \
         "mitmproxy==${MITMPROXY_VERSION}"
-
-# Lock venv ownership to mitm and remove execute permission for others.
-# ENV carries MITM_USER from the base stage.
-RUN chown -R "${MITM_USER}:${MITM_USER}" /opt/mitmproxy-venv \
-    && chmod -R o-x /opt/mitmproxy-venv/bin
 
 # ════════════════════════════════════════════════════════════
 # STAGE 5 — final
@@ -312,7 +330,13 @@ RUN chown -R "${MITM_USER}:${MITM_USER}" /opt/mitmproxy-venv \
 # ════════════════════════════════════════════════════════════
 FROM code-server-install AS final
 
-ARG DEBIAN_FRONTEND=noninteractive
+# User identity ARGs — override at build time if your host UIDs differ:
+ARG CODER_USER=coder
+ARG MITM_USER=mitm
+ARG DISPLAY_USER=display
+
+# Port ARGs — override at build time to remap services:
+ARG AGENT_SANDBOX_PORT=6080
 
 # ── mitmproxy allowlist ───────────────────────────────────────
 # Owned root, world-readable, not writable by service users.
@@ -343,6 +367,10 @@ RUN chmod +x \
 # Merge: copy the mitmproxy venv from its independent build stage.
 # This is the point where both parallel build paths converge.
 COPY --from=mitmproxy-install /opt/mitmproxy-venv /opt/mitmproxy-venv
+# Lock venv ownership to mitm and remove execute permission for others.
+# ENV carries MITM_USER from the base stage.
+RUN chown -R "${MITM_USER}:${MITM_USER}" /opt/mitmproxy-venv \
+    && chmod -R o-x /opt/mitmproxy-venv/bin
 
 # ── Service log and PID directories ──────────────────────────
 RUN mkdir -p \

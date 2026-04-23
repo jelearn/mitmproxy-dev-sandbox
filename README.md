@@ -8,7 +8,7 @@ container executes on your host OS.
 
 To get started, after cloning this repo:
 
-0) Install `podman` and `podman-compose`.
+0) Install `podman` (>= 4.9.3) and `podman-compose` (>=1.0.6).
 1) Run `./manage.sh start` to start the containerized sandbox environment.
 2) Run `./manage.sh claude` to start a shell into Claude Code.
 3) Follow the Claude Code instructions to setup/authorize it to
