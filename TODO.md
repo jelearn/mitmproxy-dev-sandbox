@@ -2,8 +2,10 @@ Notes on issues and things to look-into:
 
 - [ ] Explore wireshark capture of coder to mitmproxy to internet traffic
       to verify it works as one expects.
-- [ ] Work on updating the AGENTS.md to ensure all scripts are checked though
+- [X] Work on updating the AGENTS.md to ensure all scripts are checked though
       appropriate linting or syntax check utilties: e.g. pylint & shellcheck
+    - AGENTS.md updated with shellcheck and pylint guidance.
+    - All existing shell scripts and allowlist.py fixed to pass linting clean.
 - [X] Update the firewall rules to ensure that all users are limited to the
       minimum network accesses needed to perform their functions.
 - [X] Develop a method to easily create multiple sanboxed environments for

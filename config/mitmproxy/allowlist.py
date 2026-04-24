@@ -21,6 +21,7 @@ Reloading without restart:
     second of the copy completing, with no restart needed.
 """
 
+# pylint: disable=import-error  # mitmproxy is only available at runtime inside the proxy process
 from mitmproxy import http
 
 
@@ -84,9 +85,12 @@ def _is_allowed(host: str, path: str) -> bool:
     return any(path.startswith(p) for p in prefixes)
 
 
+# pylint: disable=too-few-public-methods  # mitmproxy addons only implement the hooks they need
 class AllowlistAddon:
+    """mitmproxy addon that enforces the domain/path allowlist for outbound traffic."""
 
     def request(self, flow: http.HTTPFlow) -> None:
+        """Block any request whose host+path does not match an ALLOW_RULES entry."""
         host = flow.request.pretty_host
         path = flow.request.path
 

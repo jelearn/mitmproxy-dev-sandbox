@@ -27,7 +27,7 @@
 
 set -euo pipefail
 
-BASE_DIR=$(dirname $0)
+BASE_DIR=$(dirname "$0")
 
 CODER_USER="${CODER_USER:-coder}"
 MITM_USER="${MITM_USER:-mitm}"
@@ -60,13 +60,13 @@ error() { echo "[entrypoint] ERROR: $*" >&2; bash; exit 1; }
 log "Initializing .claude.json on first run, or linking to existing..."
 if [[ ! -f "/home/${CODER_USER}/.claude/claude.json" ]]; then
     log "Moving default .claude.json"
-    runuser -u "${CODER_USER}" -- touch /home/${CODER_USER}/.claude.json
-    runuser -u "${CODER_USER}" -- mv /home/${CODER_USER}/.claude.json /home/${CODER_USER}/.claude/claude.json
+    runuser -u "${CODER_USER}" -- touch "/home/${CODER_USER}/.claude.json"
+    runuser -u "${CODER_USER}" -- mv "/home/${CODER_USER}/.claude.json" "/home/${CODER_USER}/.claude/claude.json"
 elif [[ -f "/home/${CODER_USER}/.claude.json" ]]; then
     log "Deleting default .claude.json"
-    runuser -u "${CODER_USER}" -- rm /home/${CODER_USER}/.claude.json
+    runuser -u "${CODER_USER}" -- rm "/home/${CODER_USER}/.claude.json"
 fi
-runuser -u "${CODER_USER}" -- ln -s /home/${CODER_USER}/.claude/claude.json /home/${CODER_USER}/.claude.json
+runuser -u "${CODER_USER}" -- ln -s "/home/${CODER_USER}/.claude/claude.json" "/home/${CODER_USER}/.claude.json"
 
 # ── Step 1b: Setup opencode config ───────────────────────────────────
 # The ~/.config/opencode directory is volume-mounted so settings persist
@@ -83,7 +83,7 @@ fi
 # ── Step 2: Start mitmproxy as 'mitm' ─────────────────────────
 # mitm is a no-login user (shell: /usr/sbin/nologin), so we use
 # runuser -s /bin/bash to give it a temporary shell for this call.
-${BASE_DIR}/start-mitmproxy.sh "${MITM_USER}" "${MITM_PORT}" "${MITM_CONF_DIR}" "${MITM_CA_DIR}"
+"${BASE_DIR}/start-mitmproxy.sh" "${MITM_USER}" "${MITM_PORT}" "${MITM_CONF_DIR}" "${MITM_CA_DIR}"
 
 # ── Step 3: Wait for CA cert ──────────────────────────────────
 # mitmproxy generates its CA on first connection, not on startup.
@@ -102,7 +102,7 @@ curl -sk \
 
 # Wait for the cert file to appear (mitmproxy writes it to confdir)
 CERT_SOURCE="${MITM_CONF_DIR}/mitmproxy-ca-cert.pem"
-for i in $(seq 1 30); do
+for _ in $(seq 1 30); do
     [[ -f "${CERT_SOURCE}" ]] && break
     sleep 0.5
 done
@@ -176,7 +176,7 @@ runuser -u "${CODER_USER}" -- bash -c "
     git config --global user.email '${GIT_AUTHOR_EMAIL:-dev@sandbox.local}'
     git config --global init.defaultBranch main
     git config --global safe.directory '*'
-    git config --global http.sslCAInfo "${CODER_CA_BUNDLE}"
+    git config --global http.sslCAInfo \"${CODER_CA_BUNDLE}\"
 "
 log "CA trust environment configured for '${CODER_USER}'."
 
@@ -225,18 +225,18 @@ DISPLAY="${DISPLAY_NUM}" runuser -u "${CODER_USER}" -- bash -c "
 # ── Step 9: Monitor ───────────────────────────────────────────
 log "All services up."
 log "  noVNC      : http://localhost:${NOVNC_PORT}"
-log "  mitmproxy  : :${MITM_PORT}  (uid ${MITM_USER}/$(id -u ${MITM_USER}))"
-log "  code-server: :8080  (uid ${CODER_USER}/$(id -u ${CODER_USER}))"
+log "  mitmproxy  : :${MITM_PORT}  (uid ${MITM_USER}/$(id -u "${MITM_USER}"))"
+log "  code-server: :8080  (uid ${CODER_USER}/$(id -u "${CODER_USER}"))"
 log ""
 log "Use './manage.sh proxy-log' to watch the allowlist in action."
 
 tail -f \
-    /home/${MITM_USER}/logs/mitmproxy.log \
-    /home/${DISPLAY_USER}/logs/vnc.log \
-    /home/${DISPLAY_USER}/logs/openbox.log \
-    /home/${DISPLAY_USER}/logs/websockify.log \
-    /home/${CODER_USER}/logs/code-server.log \
-    /home/${CODER_USER}/logs/chromium.log \
+    "/home/${MITM_USER}/logs/mitmproxy.log" \
+    "/home/${DISPLAY_USER}/logs/vnc.log" \
+    "/home/${DISPLAY_USER}/logs/openbox.log" \
+    "/home/${DISPLAY_USER}/logs/websockify.log" \
+    "/home/${CODER_USER}/logs/code-server.log" \
+    "/home/${CODER_USER}/logs/chromium.log" \
     2>/dev/null
 
 # Container exits when noVNC exits

@@ -55,7 +55,7 @@ runuser -u "${DISPLAY_USER}" -- bash -c "
 "
 
 X_SOCKET="/tmp/.X11-unix/X${DISPLAY_NUM#:}"
-for i in $(seq 1 30); do
+for _ in $(seq 1 30); do
     [[ -S "${X_SOCKET}" ]] && break
     sleep 0.5
 done

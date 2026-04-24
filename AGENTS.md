@@ -82,3 +82,50 @@ General guidance:
         - For example: `git commit --author 'Claude Sonnet 4.6 <noreply@anthropic.com>'`
 - Changes should be made with instructive comments explaining why they are required so that the project is as
   instructive as possible.
+
+### Linting and Static Analysis
+
+After modifying any shell script (`.sh`) or Python file (`.py`), run the appropriate linter(s)
+before committing. Fix all warnings and errors unless a specific suppression with justification
+is added inline.
+
+**Shell scripts — `shellcheck`**
+
+Run against every `.sh` file that was created or modified:
+
+```sh
+shellcheck <file.sh>
+```
+
+To check all shell scripts in the project at once:
+
+```sh
+shellcheck manage.sh scripts/*.sh
+```
+
+- Target: zero warnings or errors (severity levels `error`, `warning`, `info`).
+- The one expected `info` suppression is SC1091 on the `.env` source line in `manage.sh`
+  because the file is intentionally absent from the repo. Suppress inline with:
+  ```sh
+  # shellcheck source=/dev/null
+  source "${BASE_DIR}/.env"
+  ```
+- All other findings must be resolved, not suppressed, unless there is a documented reason.
+
+**Python files — `pylint`**
+
+Run against every `.py` file that was created or modified:
+
+```sh
+pylint <file.py>
+```
+
+- Target: score of 9.0/10 or higher.
+- `config/mitmproxy/allowlist.py` is a mitmproxy addon and cannot import `mitmproxy` outside
+  the proxy process. Suppress the expected import error at the top of that file with:
+  ```python
+  # pylint: disable=import-error  # mitmproxy is only available at runtime inside the proxy
+  ```
+- The too-few-public-methods (`R0903`) ignored is kept because the API for `mitmproxy` addons
+  are very few, and adding more methods to satisfy `pylint` provides no value.
+- All other findings must be resolved, not suppressed, unless there is a documented reason.

@@ -19,7 +19,7 @@ error() { echo "[code-server] ERROR: $*" >&2; exit 1; }
 
 LOG_FILE="/home/${CODER_USER}/logs/code-server.log"
 
-log "Starting code-server as '${CODER_USER}' (uid $(id -u ${CODER_USER}))..."
+log "Starting code-server as '${CODER_USER}' (uid $(id -u "${CODER_USER}"))..."
 
 # Ensure workspace exists and is owned by coder before code-server opens it.
 mkdir -p "${WORKSPACE}"
@@ -39,7 +39,7 @@ DISPLAY="${DISPLAY_NUM}" runuser -u "${CODER_USER}" -- bash -c "
 "
 
 # Poll until code-server responds — it takes a few seconds to bind its port.
-for i in $(seq 1 30); do
+for _ in $(seq 1 30); do
     curl -sf "http://127.0.0.1:${CODESERVER_PORT}" > /dev/null 2>&1 && break
     sleep 1
 done

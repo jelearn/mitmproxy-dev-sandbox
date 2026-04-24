@@ -40,7 +40,7 @@ if [[ -f "${MITM_PID_FILE}" ]]; then
     rm -f "${MITM_PID_FILE}"
 fi
 
-log "Starting mitmproxy as '${MITM_USER}' (uid $(id -u ${MITM_USER}))..."
+log "Starting mitmproxy as '${MITM_USER}' (uid $(id -u "${MITM_USER}"))..."
 
 mkdir -p "${MITM_CONF_DIR}"
 chown "${MITM_USER}:${MITM_USER}" "${MITM_CONF_DIR}"
@@ -59,4 +59,4 @@ runuser -u "${MITM_USER}" -- /bin/bash -c "
 
 NEW_PID=$(cat "${MITM_PID_FILE}")
 log "mitmproxy started (pid ${NEW_PID}) on :${MITM_PORT}."
-log "Running as: $(ps -p ${NEW_PID} -o user= 2>/dev/null || echo 'unknown')"
+log "Running as: $(ps -p "${NEW_PID}" -o user= 2>/dev/null || echo 'unknown')"

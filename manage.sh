@@ -14,6 +14,7 @@ WORKSPACE_GUEST="/home/${CODER_USER}/workspace"
 WORKSPACE_HOST="${BASE_DIR}/workspace"
 
 if [[ -f "${BASE_DIR}/.env" ]]; then
+    # shellcheck source=/dev/null  # .env is intentionally absent from the repo
     source "${BASE_DIR}/.env"
 fi
 
@@ -158,17 +159,23 @@ case "${cmd}" in
         DISPLAY_VNC=$(podman exec "${CONTAINER_NAME}" \
             ps -eo user,comm | awk '$2~/[Xx]tigervnc|[Xx]vnc/{print $1}' | head -1)
 
-        [[ "${MITM_USER}" == "mitm" ]] \
-            && ok "mitmproxy is running as 'mitm' ✓" \
-            || warn "WARNING: mitmproxy is running as '${MITM_USER:-unknown}' — expected 'mitm'"
+        if [[ "${MITM_USER}" == "mitm" ]]; then
+            ok "mitmproxy is running as 'mitm' ✓"
+        else
+            warn "WARNING: mitmproxy is running as '${MITM_USER:-unknown}' — expected 'mitm'"
+        fi
 
-        [[ "${CODER_CODESERVER}" == "coder" ]] \
-            && ok "code-server is running as 'coder' ✓" \
-            || warn "WARNING: code-server is running as '${CODER_CODESERVER:-unknown}' — expected 'coder'"
+        if [[ "${CODER_CODESERVER}" == "coder" ]]; then
+            ok "code-server is running as 'coder' ✓"
+        else
+            warn "WARNING: code-server is running as '${CODER_CODESERVER:-unknown}' — expected 'coder'"
+        fi
 
-        [[ "${DISPLAY_VNC}" == "display" ]] \
-            && ok "Xtigervnc is running as 'display' ✓" \
-            || warn "WARNING: Xtigervnc is running as '${DISPLAY_VNC:-unknown}' — expected 'display'"
+        if [[ "${DISPLAY_VNC}" == "display" ]]; then
+            ok "Xtigervnc is running as 'display' ✓"
+        else
+            warn "WARNING: Xtigervnc is running as '${DISPLAY_VNC:-unknown}' — expected 'display'"
+        fi
         ;;
 
     firewall)
@@ -253,7 +260,7 @@ case "${cmd}" in
         echo ""
         echo "Managment utility for the mitmproxy development Sandbox"
         echo ""
-        echo "  $(basename $0) <command>"
+        echo "  $(basename "$0") <command>"
         echo ""
         printf "  %-22s %s\n" "build"            "Build the podman image"
         printf "  %-22s %s\n" "start"            "Start the container"

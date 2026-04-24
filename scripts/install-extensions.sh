@@ -13,13 +13,17 @@ log() { echo "[extensions] $*"; }
 install_ext() {
     local ext_id="$1"
     log "Installing: ${ext_id}..."
-    runuser -u "${CODER_USER}" -- bash -c "
+    if runuser -u "${CODER_USER}" -- bash -c "
         source /home/${CODER_USER}/.profile.d/sandbox-env.sh 2>/dev/null || true
         code-server \
             --user-data-dir /home/${CODER_USER}/.local/share/code-server \
             --extensions-dir /home/${CODER_USER}/.local/share/code-server/extensions \
             --install-extension '${ext_id}' 2>&1
-    " && log "  OK: ${ext_id}" || log "  WARNING: failed — ${ext_id}"
+    "; then
+        log "  OK: ${ext_id}"
+    else
+        log "  WARNING: failed — ${ext_id}"
+    fi
 }
 
 install_ext "Anthropic.claude-code"
