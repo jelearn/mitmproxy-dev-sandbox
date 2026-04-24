@@ -74,14 +74,15 @@ General guidance:
 - When possible, repeatable tests should be added to the code base to confirm key design features still work
   on an ongoing basis.
     - When not possible, they should be noted in the TODO to address manually.
-- When an agent is writing the commit, it should follow the pattern: `${MODEL_NAME} <no-reply@${MODEL_AUTHOR_DOMAIN}>`
-    - Where `MODEL_NAME` is the full name and version of the model, and `MODEL_AUTHOR_DOMAIN` is the domain name
+- When an agent is writing the commit, it should add itself as a co-author.
+    - It should follow the pattern: `${MODEL_NAME} <no-reply@${MODEL_AUTHOR_DOMAIN}>`
+        - Where `MODEL_NAME` is the full name and version of the model, and `MODEL_AUTHOR_DOMAIN` is the domain name
       of the model's author.
-    - For example: `Claude Sonnet 4.6 <noreply@anthropic.com>`
-    - This should be done using the `--author` argument to `git commit`.
-        - For example: `git commit --author 'Claude Sonnet 4.6 <noreply@anthropic.com>'`
+        - For example: `Claude Sonnet 4.6 <noreply@anthropic.com>`
+    - This should be done by adding a co-author line at the end of each commit message, for example:
+        `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>`
 - Changes should be made with instructive comments explaining why they are required so that the project is as
-  instructive as possible.
+  informative as possible for those learning the code base.
 
 ### Linting and Static Analysis
 
