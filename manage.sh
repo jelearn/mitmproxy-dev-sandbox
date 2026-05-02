@@ -224,10 +224,16 @@ case "${cmd}" in
         podman exec -it --user coder "${CONTAINER_NAME}" /bin/bash -l -c "cd ~/workspace && opencode"
         ;;
 
+    display-shell)
+        require_running
+        warn "Shell as 'display' user (proxy process owner)."
+        podman exec -it --user display "${CONTAINER_NAME}" /bin/bash -l
+        ;;
+
     mitm-shell)
         require_running
         warn "Shell as 'mitm' user (proxy process owner)."
-        podman exec -it --user mitm "${CONTAINER_NAME}" /bin/bash
+        podman exec -it --user mitm "${CONTAINER_NAME}" /bin/bash -l
         ;;
 
     # ── Volume management ─────────────────────────────────────
@@ -281,6 +287,7 @@ case "${cmd}" in
         printf "  %-22s %s\n" "claude"           "Run Claude Code as coder"
         printf "  %-22s %s\n" "opencode"         "Run opencode as coder"
         printf "  %-22s %s\n" "coder-shell"      "Shell as coder"
+        printf "  %-22s %s\n" "display-shell"    "Shell as display"
         printf "  %-22s %s\n" "mitm-shell"       "Shell as mitm"
         printf "  %-22s %s\n" "reset-workspace"  "Delete workspace volume"
         printf "  %-22s %s\n" "reset-ca"         "Delete CA cert volume"
