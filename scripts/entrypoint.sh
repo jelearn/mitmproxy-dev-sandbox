@@ -52,7 +52,15 @@ log()   { echo "[entrypoint] $(date '+%H:%M:%S') $*"; }
 
 # NOTE: on error drop into bash to inspect
 # possibly remove this in future
-error() { echo "[entrypoint] ERROR: $*" >&2; bash; exit 1; }
+error() { echo "[entrypoint] $(date '+%H:%M:%S') ERROR: $*" >&2; bash; exit 1; }
+
+# ── Step 4: Apply iptables REDIRECT ──────────────────────────
+# firewall.sh exempts MITM_UID (1101 = mitm user) from the
+# REDIRECT rule, NOT CODER_UID. coder's traffic always goes
+# through mitmproxy.
+log "Applying iptables rules..."
+/scripts/firewall.sh
+log "Firewall active."
 
 # ── Step 1: Setup claude.ai config  ──────────────────────────────────
 
@@ -148,6 +156,7 @@ log "Chromium NSS database updated."
 log "Configuring CA trust environment for '${CODER_USER}'..."
 cat > "/home/${CODER_USER}/.profile.d/sandbox-env.sh" <<EOF
 # Injected by entrypoint.sh — do not edit manually.
+export DISPLAY="${DISPLAY_NUM}"
 export NODE_EXTRA_CA_CERTS="${MITM_CA}"
 export REQUESTS_CA_BUNDLE="${CODER_CA_BUNDLE}"
 export SSL_CERT_FILE="${CODER_CA_BUNDLE}"
@@ -180,14 +189,6 @@ runuser -u "${CODER_USER}" -- bash -c "
 "
 log "CA trust environment configured for '${CODER_USER}'."
 
-# ── Step 4: Apply iptables REDIRECT ──────────────────────────
-# firewall.sh exempts MITM_UID (1101 = mitm user) from the
-# REDIRECT rule, NOT CODER_UID. coder's traffic always goes
-# through mitmproxy.
-log "Applying iptables rules..."
-/scripts/firewall.sh
-log "Firewall active."
-
 # ── Step 5: Start display services ───────────────────────────
 # Xtigervnc, Openbox, and noVNC run as the 'display' user.
 # start-display.sh grants 'coder' X11 access via xhost and
@@ -202,6 +203,15 @@ log "Display services up (noVNC pid ${NOVNC_PID})."
 "${BASE_DIR}/start-code-server.sh" \
     "${CODER_USER}" "${WORKSPACE}" "${DISPLAY_NUM}" "${CODESERVER_PORT}"
 
+# ── Step 8: Launch Chromium ───────────────────────────────────
+log "Launching Chromium as '${CODER_USER}'..."
+sleep 2  # give Openbox a moment to settle
+runuser -u "${CODER_USER}" -- bash -c "
+    source '/home/${CODER_USER}/.profile.d/sandbox-env.sh'
+    export DISPLAY='${DISPLAY_NUM}'
+    /scripts/launch-chromium.sh >> /home/${CODER_USER}/logs/chromium.log 2>&1 &
+"
+
 # ── Step 7: Install VS Code extensions (first run only) ───────
 EXT_STAMP="/home/${CODER_USER}/.local/share/code-server/.extensions-installed"
 if [[ ! -f "${EXT_STAMP}" ]]; then
@@ -214,13 +224,6 @@ else
     log "Extensions already installed, skipping."
 fi
 
-# ── Step 8: Launch Chromium ───────────────────────────────────
-log "Launching Chromium as '${CODER_USER}'..."
-sleep 2  # give Openbox a moment to settle
-DISPLAY="${DISPLAY_NUM}" runuser -u "${CODER_USER}" -- bash -c "
-    source /home/${CODER_USER}/.profile.d/sandbox-env.sh
-    /scripts/launch-chromium.sh >> /home/${CODER_USER}/logs/chromium.log 2>&1 &
-"
 
 # ── Step 9: Monitor ───────────────────────────────────────────
 log "All services up."

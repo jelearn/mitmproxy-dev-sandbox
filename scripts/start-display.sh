@@ -21,8 +21,8 @@ NOVNC_PORT=${5:-${NOVNC_PORT:-6080}}
 SCREEN_RES=${6:-${SCREEN_RESOLUTION:-1600x900x24}}
 VNC_PASSWORD=${7:-}
 
-log()   { echo "[display] $*" >&2; }
-error() { echo "[display] ERROR: $*" >&2; exit 1; }
+log()   { echo "[display] $(date '+%H:%M:%S') $*" >&2; }
+error() { echo "[display] $(date '+%H:%M:%S') ERROR: $*" >&2; exit 1; }
 
 LOG_DIR="/home/${DISPLAY_USER}/logs"
 RUN_DIR="/home/${DISPLAY_USER}/run"
@@ -32,26 +32,32 @@ VNC_DIR="/home/${DISPLAY_USER}/.vnc"
 mkdir -p "${VNC_DIR}"
 chown "${DISPLAY_USER}:${DISPLAY_USER}" "${VNC_DIR}"
 
+# socket directory, requiring stickybit for users creating
+# their sockets
+mkdir -p /tmp/.X11-unix
+chmod 1777 /tmp/.X11-unix
+
 if [[ -n "${VNC_PASSWORD}" ]]; then
     printf '%s\n%s\n' "${VNC_PASSWORD}" "${VNC_PASSWORD}" \
         | vncpasswd -f > "${VNC_DIR}/passwd"
     chmod 600 "${VNC_DIR}/passwd"
     chown "${DISPLAY_USER}:${DISPLAY_USER}" "${VNC_DIR}/passwd"
-    VNC_SEC_ARGS="-SecurityTypes VncAuth -PasswordFile ${VNC_DIR}/passwd"
+    VNC_SEC_ARGS="-SecurityTypes VncAuth -PasswordFile '${VNC_DIR}/passwd'"
 else
     log "No VNC_PASSWORD set — unauthenticated (localhost only)."
     VNC_SEC_ARGS="-SecurityTypes None --I-KNOW-THIS-IS-INSECURE"
 fi
 
 # ── Xtigervnc ─────────────────────────────────────────────────
+
 log "Starting Xtigervnc on ${DISPLAY_NUM} (${SCREEN_RES})..."
 runuser -u "${DISPLAY_USER}" -- bash -c "
-    tigervncserver ${DISPLAY_NUM} \
+    tigervncserver '${DISPLAY_NUM}' \
         -localhost no \
-        -rfbport ${VNC_PORT} \
+        -rfbport '${VNC_PORT}' \
         ${VNC_SEC_ARGS} \
-        -fg >> ${LOG_DIR}/vnc.log 2>&1 &
-    echo \$! > ${RUN_DIR}/vnc.pid
+        -fg >> '${LOG_DIR}/vnc.log' 2>&1 &
+    echo \$! > '${RUN_DIR}/vnc.pid'
 "
 
 X_SOCKET="/tmp/.X11-unix/X${DISPLAY_NUM#:}"
