@@ -279,7 +279,7 @@ case "${cmd}" in
         podman exec -it "${CONTAINER_NAME}" /bin/bash
         ;;
 
-    coder-shell)
+    coder)
         require_running
         info "Shell as 'coder'..."
         podman exec -it --user coder "${CONTAINER_NAME}" /bin/bash -l -c "cd ~/workspace; bash"
@@ -297,13 +297,13 @@ case "${cmd}" in
         podman exec -it --user coder "${CONTAINER_NAME}" /bin/bash -l -c "cd ~/workspace && opencode"
         ;;
 
-    display-shell)
+    display)
         require_running
         warn "Shell as 'display' user (proxy process owner)."
         podman exec -it --user display "${CONTAINER_NAME}" /bin/bash -l
         ;;
 
-    mitm-shell)
+    mitm)
         require_running
         warn "Shell as 'mitm' user (proxy process owner)."
         podman exec -it --user mitm "${CONTAINER_NAME}" /bin/bash -l
@@ -361,9 +361,9 @@ case "${cmd}" in
         printf "  %-22s %s\n" "shell"            "Root shell"
         printf "  %-22s %s\n" "claude"           "Run Claude Code as coder"
         printf "  %-22s %s\n" "opencode"         "Run opencode as coder"
-        printf "  %-22s %s\n" "coder-shell"      "Shell as coder"
-        printf "  %-22s %s\n" "display-shell"    "Shell as display"
-        printf "  %-22s %s\n" "mitm-shell"       "Shell as mitm"
+        printf "  %-22s %s\n" "coder"            "Shell as coder"
+        printf "  %-22s %s\n" "display"          "Shell as display"
+        printf "  %-22s %s\n" "mitm"             "Shell as mitm"
         printf "  %-22s %s\n" "reset-workspace"  "Delete workspace volume"
         printf "  %-22s %s\n" "reset-ca"         "Delete CA cert volume"
         printf "  %-22s %s\n" "clean"            "Remove container, image, and network"
