@@ -104,9 +104,7 @@ sleep 2
 # Trigger CA generation with a test CONNECT request.
 # This will be blocked by allowlist.py (example.com is not allowed)
 # but that's fine — we only need mitmproxy to generate the CA cert.
-curl -sk \
-    --proxy "http://127.0.0.1:${MITM_PORT}" \
-    "https://example.com" > /dev/null 2>&1 || true
+curl -sk "https://example.com" > /dev/null 2>&1 || true
 
 # Wait for the cert file to appear (mitmproxy writes it to confdir)
 CERT_SOURCE="${MITM_CONF_DIR}/mitmproxy-ca-cert.pem"
