@@ -1,5 +1,9 @@
 Notes on issues and things to look-into:
 
+- [ ] The `manage.sh load_workspace` is only really needed when SELinux is
+      used, so when using default Ubuntu installs (or other) can mount the
+      `./workspace` directory directly instead of manually loading it.
+- [ ] Remove the dependency on podman-compose and imply use podman directly.
 - [ ] Explore wireshark capture of coder to mitmproxy to internet traffic
       to verify it works as one expects.
 - [X] Work on updating the AGENTS.md to ensure all scripts are checked though
