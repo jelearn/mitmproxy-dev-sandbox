@@ -141,9 +141,16 @@ done
 log "Xtigervnc ready."
 
 # ── Grant coder X11 access ────────────────────────────────────
+# Retry loop: the socket existing doesn't mean Xtigervnc is fully ready yet.
 log "Granting '${CODER_USER}' access to display ${DISPLAY_NUM}..."
+for _ in $(seq 1 20); do
+    DISPLAY="${DISPLAY_NUM}" runuser -u "${DISPLAY_USER}" -- \
+        xhost +SI:localuser:"${CODER_USER}" 2>/dev/null && break
+    sleep 0.5
+done
 DISPLAY="${DISPLAY_NUM}" runuser -u "${DISPLAY_USER}" -- \
-    xhost +SI:localuser:"${CODER_USER}"
+    xhost +SI:localuser:"${CODER_USER}" \
+    || error "xhost failed after 10s — Xtigervnc did not become ready."
 
 # ── Wait for Openbox ──────────────────────────────────────────
 # xstartup (exec'd by tigervncserver) starts openbox-session once
