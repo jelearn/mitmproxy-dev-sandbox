@@ -52,9 +52,8 @@ Key fils and directories:
 
 | File / Directory | Role |
 |------|------|
-| `manage.sh` | Host-side control script for all container operations |
+| `manage.sh` | Host-side control script for all container operations (build, start, stop, volumes, network) |
 | `Containerfile` | Podman/Docker Multi-stage image build |
-| `compose.yml` | Podman/Docker Compose config (ports, volumes, env) |
 | `scripts` | Contains any scripts needed to initialize the sandbox environment |
 | `scripts/entrypoint.sh` | Container init: starts all services as correct users |
 | `scripts/firewall.sh` | iptables transparent proxy rules |

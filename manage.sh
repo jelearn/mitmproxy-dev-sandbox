@@ -20,15 +20,23 @@ fi
 
 AGENT_SANDBOX_PORT="${AGENT_SANDBOX_PORT:-6080}"
 
-# We're using podman compose up, so the directory name
-# of the repository is used as the container prefix.
+# The directory name of the repository is used as the container prefix so that
+# cloning the repo to a different directory produces an independent sandbox.
 CONTAINER_PREFIX=$(basename "${BASE_PATH}")
-# Based on the "services" in the compose.yml the full
-# container name will be a concatenation of the above
-# and "_1"
 CONTAINER_NAME=${AGENT_SANDBOX_NAME:-${CONTAINER_PREFIX}}
 # TODO: Have this set by default in vnc.html or system settings
 URL="http://localhost:${AGENT_SANDBOX_PORT}/vnc.html?resize=remote&autoconnect=true"
+
+# Image name — derived from CONTAINER_NAME for a 1:1 mapping between image and container
+IMAGE_NAME="${CONTAINER_NAME}"
+
+# Named volumes — prefixed with CONTAINER_NAME to preserve the naming convention that
+# podman compose previously used (<project>_<volume>), keeping existing data intact.
+VOL_WORKSPACE="${CONTAINER_NAME}_workspace_data"
+VOL_VSCODE_EXT="${CONTAINER_NAME}_vscode_extensions"
+VOL_CLAUDE_AI="${CONTAINER_NAME}_claude_ai"
+VOL_OPENCODE="${CONTAINER_NAME}_opencode_config"
+VOL_MITMPROXY_CA="${CONTAINER_NAME}_mitmproxy_ca"
 
 BLU='\033[0;34m'; GRN='\033[0;32m'; YLW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 info()  { echo -e "${BLU}[manage]${NC} $*"; }
@@ -43,8 +51,60 @@ require_running() {
 
 sandbox_workspace_link() {
     rm -f sandbox
-    SANDBOX_PATH=$(podman volume inspect --format '{{.Mountpoint}}' "${CONTAINER_PREFIX}_workspace_data")
+    SANDBOX_PATH=$(podman volume inspect --format '{{.Mountpoint}}' "${VOL_WORKSPACE}")
     ln -fs "${SANDBOX_PATH}" sandbox
+}
+
+# Create any named volumes that do not already exist.
+ensure_volumes() {
+    local vol
+    for vol in "${VOL_WORKSPACE}" "${VOL_VSCODE_EXT}" "${VOL_CLAUDE_AI}" \
+               "${VOL_OPENCODE}" "${VOL_MITMPROXY_CA}"; do
+        podman volume inspect "${vol}" > /dev/null 2>&1 \
+            || podman volume create "${vol}" > /dev/null
+    done
+}
+
+# Create the dedicated bridge network if it does not already exist.
+# podman run defaults to slirp4netns for rootless containers; an explicit bridge
+# network is required so that iptables rules inside the container behave the same
+# way they would on a standard kernel bridge (matching previous podman compose behaviour).
+ensure_network() {
+    podman network inspect "${CONTAINER_NAME}_net" > /dev/null 2>&1 \
+        || podman network create "${CONTAINER_NAME}_net" > /dev/null
+}
+
+# Start the container with all settings previously defined in compose.yml.
+container_start() {
+    podman run -d \
+        --replace \
+        --name "${CONTAINER_NAME}" \
+        --network "${CONTAINER_NAME}_net" \
+        --sysctl net.ipv6.conf.all.disable_ipv6=1 \
+        --sysctl net.ipv6.conf.default.disable_ipv6=1 \
+        --sysctl net.ipv6.conf.lo.disable_ipv6=1 \
+        --cap-add NET_ADMIN \
+        --security-opt no-new-privileges=true \
+        -p "127.0.0.1:${AGENT_SANDBOX_PORT:-6080}:6080" \
+        -e "SCREEN_RESOLUTION=${SCREEN_RESOLUTION:-1600x900x24}" \
+        -e "GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME:-Developer}" \
+        -e "GIT_AUTHOR_EMAIL=${GIT_AUTHOR_EMAIL:-dev@sandbox.local}" \
+        --memory 8g \
+        --cpus 4.0 \
+        --shm-size 1g \
+        --restart unless-stopped \
+        -v "${VOL_WORKSPACE}:/home/coder/workspace" \
+        -v "${VOL_VSCODE_EXT}:/home/coder/.local/share/code-server/extensions" \
+        -v "${VOL_CLAUDE_AI}:/home/coder/.claude" \
+        -v "${VOL_OPENCODE}:/home/coder/.config/opencode" \
+        -v "${VOL_MITMPROXY_CA}:/opt/mitmproxy-ca" \
+        "${IMAGE_NAME}"
+}
+
+# Stop and remove the container (idempotent — safe to call when not running).
+container_stop() {
+    podman stop "${CONTAINER_NAME}" 2>/dev/null || true
+    podman rm   "${CONTAINER_NAME}" 2>/dev/null || true
 }
 
 cmd="${1:-help}"
@@ -52,19 +112,32 @@ cmd="${1:-help}"
 case "${cmd}" in
     build)
         info "Building image..."
-        podman compose build
+        podman build -t "${IMAGE_NAME}" -f Containerfile .
         ok "Build complete."
         ;;
 
     start)
-        podman compose up -d
+        ensure_volumes
+        ensure_network
+        container_start
         sleep 3
         sandbox_workspace_link
         ok "noVNC at: ${URL}"
         ;;
 
-    stop)   podman compose down;        ok "Stopped." ;;
-    restart) podman compose down && podman compose up -d; sandbox_workspace_link; ok "Restarted. ${URL}" ;;
+    stop)
+        container_stop
+        ok "Stopped."
+        ;;
+
+    restart)
+        container_stop
+        ensure_volumes
+        ensure_network
+        container_start
+        sandbox_workspace_link
+        ok "Restarted. ${URL}"
+        ;;
 
     load_workspace)
         require_running
@@ -241,8 +314,8 @@ case "${cmd}" in
     reset-workspace)
         warn "Deletes all workspace files."
         read -rp "Sure? [y/N] " c; [[ "${c,,}" == "y" ]] || exit 0
-        podman compose down
-        podman volume rm "${CONTAINER_NAME}_workspace_data" 2>/dev/null || true
+        container_stop
+        podman volume rm "${VOL_WORKSPACE}" 2>/dev/null || true
         ok "Workspace removed."
         ;;
 
@@ -250,15 +323,17 @@ case "${cmd}" in
         warn "Deletes the mitmproxy CA cert volume."
         warn "A new CA is generated on next start and reinstalled into Chromium."
         read -rp "Sure? [y/N] " c; [[ "${c,,}" == "y" ]] || exit 0
-        podman compose down
-        podman volume rm "${CONTAINER_NAME}_mitmproxy_ca" 2>/dev/null || true
+        container_stop
+        podman volume rm "${VOL_MITMPROXY_CA}" 2>/dev/null || true
         ok "CA volume removed."
         ;;
 
     clean)
-        warn "Removes container and image."
+        warn "Removes container, image, and network."
         read -rp "Sure? [y/N] " c; [[ "${c,,}" == "y" ]] || exit 0
-        podman compose down --rmi all 2>/dev/null || true
+        container_stop
+        podman rmi "${IMAGE_NAME}" 2>/dev/null || true
+        podman network rm "${CONTAINER_NAME}_net" 2>/dev/null || true
         ok "Cleaned."
         ;;
 
@@ -291,7 +366,7 @@ case "${cmd}" in
         printf "  %-22s %s\n" "mitm-shell"       "Shell as mitm"
         printf "  %-22s %s\n" "reset-workspace"  "Delete workspace volume"
         printf "  %-22s %s\n" "reset-ca"         "Delete CA cert volume"
-        printf "  %-22s %s\n" "clean"            "Remove container + image"
+        printf "  %-22s %s\n" "clean"            "Remove container, image, and network"
         echo ""
         ;;
 esac
