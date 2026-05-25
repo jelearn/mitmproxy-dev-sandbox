@@ -117,6 +117,14 @@ XSTARTUP
 chmod 755 "${VNC_DIR}/xstartup"
 chown "${DISPLAY_USER}:${DISPLAY_USER}" "${VNC_DIR}/xstartup"
 
+# ── Clean up stale X11 state ──────────────────────────────────
+# Podman reuses the container overlay on automatic restart, so lock files
+# and sockets from a prior crashed run persist in /tmp. Clean them up so
+# tigervncserver can always start fresh instead of refusing due to an
+# existing lock, which would leave a dead socket that fools the wait loop.
+DISPLAY_NUM_BARE="${DISPLAY_NUM#:}"
+rm -f "/tmp/.X${DISPLAY_NUM_BARE}-lock" "/tmp/.X11-unix/X${DISPLAY_NUM_BARE}" 2>/dev/null || true
+
 # ── Xtigervnc ─────────────────────────────────────────────────
 # Build a safely-quoted arg string from the array so it can be
 # embedded in the bash -c string without shellcheck word-split issues.
@@ -141,16 +149,26 @@ done
 log "Xtigervnc ready."
 
 # ── Grant coder X11 access ────────────────────────────────────
-# Retry loop: the socket existing doesn't mean Xtigervnc is fully ready yet.
-log "Granting '${CODER_USER}' access to display ${DISPLAY_NUM}..."
+# Share the MIT-MAGIC-COOKIE via xauth rather than using xhost. xhost requires
+# an active X11 connection to the running server; xauth works on the
+# Xauthority file directly, so it succeeds as soon as tigervncserver has
+# written the cookie — before the X server is ready to accept connections.
+log "Sharing X11 credentials with '${CODER_USER}'..."
+DISPLAY_XAUTH="/home/${DISPLAY_USER}/.Xauthority"
 for _ in $(seq 1 20); do
-    DISPLAY="${DISPLAY_NUM}" runuser -u "${DISPLAY_USER}" -- \
-        xhost +SI:localuser:"${CODER_USER}" 2>/dev/null && break
+    [[ -s "${DISPLAY_XAUTH}" ]] && break
     sleep 0.5
 done
-DISPLAY="${DISPLAY_NUM}" runuser -u "${DISPLAY_USER}" -- \
-    xhost +SI:localuser:"${CODER_USER}" \
-    || error "xhost failed after 10s — Xtigervnc did not become ready."
+if [[ ! -s "${DISPLAY_XAUTH}" ]]; then
+    log "Xauthority not found — last lines of VNC log:"
+    tail -20 "${LOG_DIR}/vnc.log" >&2 2>/dev/null || true
+    error "Xauthority not created within 10s — tigervncserver likely failed to start"
+fi
+XAUTHORITY="${DISPLAY_XAUTH}" runuser -u "${DISPLAY_USER}" -- \
+    xauth extract - "${DISPLAY_NUM}" \
+    | runuser -u "${CODER_USER}" -- xauth merge - \
+    || error "Failed to share X11 credentials with '${CODER_USER}'"
+log "X11 credentials shared with '${CODER_USER}'."
 
 # ── Wait for Openbox ──────────────────────────────────────────
 # xstartup (exec'd by tigervncserver) starts openbox-session once
