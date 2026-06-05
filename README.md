@@ -9,18 +9,19 @@ container executes on your host OS.
 To get started, after cloning this repo:
 
 0) Install `podman` (>= 4.9.3).
-1) Run `./manage.sh start` to start the containerized sandbox environment.
-2) Run `./manage.sh claude` to start a shell into Claude Code.
-3) Follow the Claude Code instructions to setup/authorize it to
+1) Run `./manage.sh build` to create the container for the sandbox.
+2) Run `./manage.sh start` to start the containerized sandbox environment.
+3) Run `./manage.sh claude` to start a shell into Claude Code.
+4) Follow the Claude Code instructions to setup/authorize it to
    access your account (copy URL into browser and paste in
    authorization code).
-4) Work on the command-line and/or go to the `code-server` IDE in a browser.
+5) Work on the command-line and/or go to the `code-server` IDE in a browser.
     - Basic command-line: `./manage.sh coder-shell`
     - Agent options:
         - `./manage.sh claude`
         - `./manage.sh opencode`
     - `code-server` via the [local VNC instance](http://localhost:6080/vnc.html?resize=remote&autoconnect=true)
-5) To access to the container's sandbox workspace, you have two options which
+6) To access to the container's sandbox workspace, you have two options which
    depends on your setup.
     - For the most permissive setups, you may have read-write access to: `./sandbox`
       Which was created after `start` and is a link to the volume mount for the
