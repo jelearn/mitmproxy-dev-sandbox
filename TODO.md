@@ -21,8 +21,6 @@ Notes on issues and things to look-into:
     - Potentially also defining them as simple lists in configuration files.
     - DONE:  This can be done by simply cloning the repo to another directory.
 - [ ] Update the mitmproxy allow list feature to provide additional controls
-      over HTTP actions, HTTP/HTT.
-- [ ] Update the mitmproxy allow list feature to provide additional controls
       over HTTP actions, HTTP/HTTPS.
 - [ ] Update the `manage.sh` to ensure any changes made to configuration files
       in the host OS are copied into the container on start.
