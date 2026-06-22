@@ -1,35 +1,28 @@
 Notes on issues and things to look-into:
 
+- [ ] Improve allowlist setup to make adding new entries easier.
+    Then what if the MITM proxy service that runs in the sandbox was changed to
+    have a CLI interface that would allow a user to easily add/remove domains
+    and paths to/from the allowlist such that when monitoring the "proxy-log"
+    they can easily see and adjust the allowlist rules.
+
+    Potentially REPL-like CLI interface, and whe refactor the MITM proxy
+    service such that it no longer relies on a allowlist.py to get the rules,
+    but a simple JSON configuration file (a list of tuples of domain, url) that
+    when changed reloads the allow/block rules based on the contents?
+
 - [ ] The `manage.sh load_workspace` is only really needed when SELinux is
       used, so when using default Ubuntu installs (or other) can mount the
       `./workspace` directory directly instead of manually loading it.
-- [X] Remove the dependency on podman-compose and imply use podman directly.
 - [ ] Explore wireshark capture of coder to mitmproxy to internet traffic
       to verify it works as one expects.
-- [X] Work on updating the AGENTS.md to ensure all scripts are checked though
-      appropriate linting or syntax check utilties: e.g. pylint & shellcheck
-    - AGENTS.md updated with shellcheck and pylint guidance.
-    - All existing shell scripts and allowlist.py fixed to pass linting clean.
-- [X] Update the firewall rules to ensure that all users are limited to the
-      minimum network accesses needed to perform their functions.
-- [X] Develop a method to easily create multiple sanboxed environments for
-      multiple projects, potentially by simply cloning this base repo in
-      a new directory, allowing the workspace to be separate, but all other
-      volumes reused?
-    - This should include including additional allow-rules, and extra apt install
-      instructions.
-    - Potentially also defining them as simple lists in configuration files.
-    - DONE:  This can be done by simply cloning the repo to another directory.
+- [ ] Pre-bake extensions into docker image?
 - [ ] Update the mitmproxy allow list feature to provide additional controls
       over HTTP actions, HTTP/HTTPS.
-- [x] Update the `manage.sh` to ensure any changes made to configuration files
-      in the host OS are copied into the container on start.
-    - PARTIAL:  Not really possible without race conditon for most of the
-      configs, except for the `allowlist.py` (which already has an auto reload
-      and `manage.sh` command) and `opencode/config.json`.  All the other
-      configs are used in various points of the `entrypoint.sh` start-up for
-      the services they configure.  Completed by copying `allowlist.py` and
-      `config.json` during start and restart.
+- [ ] Update the entrypoint.sh such that if the VS Code window is closed
+      it's re-opened again after automatically.
+- [ ] Expose the noVNC/tigerVNC clip-board to the host OS?
+- [ ] Update VS Code config to trust the workspace directory (and parent) automatically.
 - [ ] Since code-server 4.96.0 a new prompt on start-up as been added to login
       to github, this is annoying and it would be nice to avoid this.
       The work around currently is to pin it to 4.109.5 as in 4.111.0 it seems
@@ -52,6 +45,29 @@ Notes on issues and things to look-into:
       "github.copilot.walkthroughAdded": true,
       "chat.disableAIFeatures": true
       ```
+- [X] Remove the dependency on podman-compose and imply use podman directly.
+- [X] Work on updating the AGENTS.md to ensure all scripts are checked though
+      appropriate linting or syntax check utilties: e.g. pylint & shellcheck
+    - AGENTS.md updated with shellcheck and pylint guidance.
+    - All existing shell scripts and allowlist.py fixed to pass linting clean.
+- [X] Update the firewall rules to ensure that all users are limited to the
+      minimum network accesses needed to perform their functions.
+- [X] Develop a method to easily create multiple sanboxed environments for
+      multiple projects, potentially by simply cloning this base repo in
+      a new directory, allowing the workspace to be separate, but all other
+      volumes reused?
+    - This should include including additional allow-rules, and extra apt install
+      instructions.
+    - Potentially also defining them as simple lists in configuration files.
+    - DONE:  This can be done by simply cloning the repo to another directory.
+- [x] Update the `manage.sh` to ensure any changes made to configuration files
+      in the host OS are copied into the container on start.
+    - PARTIAL:  Not really possible without race conditon for most of the
+      configs, except for the `allowlist.py` (which already has an auto reload
+      and `manage.sh` command) and `opencode/config.json`.  All the other
+      configs are used in various points of the `entrypoint.sh` start-up for
+      the services they configure.  Completed by copying `allowlist.py` and
+      `config.json` during start and restart.
 - [X] Update mitmproxy to not include its own self-signed cert and only trust
       normal system certs.
     - Don't add it to the system ca-certificates?
@@ -62,11 +78,8 @@ Notes on issues and things to look-into:
     - Switched to `curl -fsSL https://code-server.dev/install.sh | sh -s --`
       with `${CODE_SERVER_VERSION:+--version "..."}` expansion. Default ARG is
       empty (latest); pass `--build-arg CODE_SERVER_VERSION=x.y.z` to pin.
-- [ ] Update the entrypoint.sh such that if the VS Code window is closed
-      it's re-opened again after automatically.
 - [X] Make the noVNC/tigerVNC screen size dynamic to browser window size?
     - Initial solution was to modify the URL used to connect.
-- [ ] Expose the noVNC/tigerVNC clip-board to the host OS?
 - [X] Undecorate the VS Code window by default.
     - Openbox rc.xml with `<decor>no</decor><maximized>yes</maximized>` for
       `class="Chromium"`. Staged via /tmp in Containerfile (COPY doesn't
@@ -87,14 +100,18 @@ Notes on issues and things to look-into:
       `CODESERVER_PORT`). All scripts now read from env with hardcoded fallbacks:
       `${VAR:-default}`. Sub-scripts use double fallback `${1:-${VAR:-default}}`
       so both entrypoint-driven and standalone invocations work correctly.
-- [ ] Update VS Code config to trust the workspace directory (and parent) automatically.
-- [ ] Generate the mitmproxy cert once, outside the image and import it.
-- [ ] Pre-bake extensions into docker image?
+- [X] Generate the mitmproxy cert once, outside the image and import it.
+    - DONE: This is already done using the `*_mitmproxy_ca` volume.
 - [X] Run display services as non-root user?
     - display user (uid 1102) now owns Xtigervnc, Openbox, noVNC/websockify.
     - coder granted X11 access via xhost +SI:localuser:coder.
-- [ ] Re-visit the vnc path lookup in the entrypoint.sh as it has issues.
-- [ ] Support Docker as well as Podman?
+- [X] Re-visit the vnc path lookup in the entrypoint.sh as it has issues.
+    - DONE:  This is assumed done as there doesn't seem to be any issues currently.
+- [X] Support Docker as well as Podman?
+    - WON'T DO:  There are too many uses of podman in the `manage.sh` script
+      and too many cases where the API would need to be mapped to both while
+      taking into consideration argument differences, etc. (error prone and
+      tedious to maintain).
 - [X] Clarify `reload-allowlist` behavior: mitmproxy 10.3.1 registers no SIGHUP
       handler (SIGHUP would terminate the process). The script addon has a built-in
       1-second file-watch poller — `podman cp` updating the mtime is sufficient for
