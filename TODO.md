@@ -22,8 +22,14 @@ Notes on issues and things to look-into:
     - DONE:  This can be done by simply cloning the repo to another directory.
 - [ ] Update the mitmproxy allow list feature to provide additional controls
       over HTTP actions, HTTP/HTTPS.
-- [ ] Update the `manage.sh` to ensure any changes made to configuration files
+- [x] Update the `manage.sh` to ensure any changes made to configuration files
       in the host OS are copied into the container on start.
+    - PARTIAL:  Not really possible without race conditon for most of the
+      configs, except for the `allowlist.py` (which already has an auto reload
+      and `manage.sh` command) and `opencode/config.json`.  All the other
+      configs are used in various points of the `entrypoint.sh` start-up for
+      the services they configure.  Completed by copying `allowlist.py` and
+      `config.json` during start and restart.
 - [ ] Since code-server 4.96.0 a new prompt on start-up as been added to login
       to github, this is annoying and it would be nice to avoid this.
       The work around currently is to pin it to 4.109.5 as in 4.111.0 it seems

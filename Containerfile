@@ -436,18 +436,12 @@ RUN printf 'source ~/.profile.d/sandbox-env.sh 2>/dev/null || true\n' \
     && chown ${CODER_USER}:${CODER_USER} /home/${CODER_USER}/.profile
 
 # ── opencode config ───────────────────────────────────────────
-# Ship a minimal default config into a system path. entrypoint.sh
-# copies it into the coder home on first run if no config exists,
-# so the volume-persisted config survives container rebuilds.
-RUN mkdir -p /etc/opencode
-COPY config/opencode/config.json /etc/opencode/config.json
-RUN chown root:root /etc/opencode/config.json \
-    && chmod 644 /etc/opencode/config.json
 
 # Pre-create the opencode config dir so the volume mount has
 # the correct ownership when it is first initialised.
-RUN mkdir -p /home/${CODER_USER}/.config/opencode \
-    && chown -R ${CODER_USER}:${CODER_USER} /home/${CODER_USER}/.config/opencode
+RUN mkdir -p /home/${CODER_USER}/.config/opencode
+COPY config/opencode/config.json /home/${CODER_USER}/.config/opencode/config.json
+RUN chown -R ${CODER_USER}:${CODER_USER} /home/${CODER_USER}/.config/opencode
 
 # ── mitm config directory ─────────────────────────────────────
 RUN mkdir -p /home/${MITM_USER}/.mitmproxy \

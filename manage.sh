@@ -74,6 +74,26 @@ ensure_network() {
         || podman network create "${CONTAINER_NAME}_net" > /dev/null
 }
 
+load_allowlist() {
+    info "Copying updated allowlist into container..."
+    podman cp "${BASE_DIR}/config/mitmproxy/allowlist.py" \
+        "${CONTAINER_NAME}:/etc/mitmproxy/allowlist.py"
+    sleep 2
+    ok "Allowlist reloaded (mitmproxy file-watch picks up changes within ~1s)."
+}
+
+load_opencode() {
+    info "Copying updated opencode config into container..."
+    podman cp "${BASE_DIR}/config/opencode/config.json" \
+        "${CONTAINER_NAME}:/home/${CODER_USER}/.config/opencode/config.json"
+    ok "opencode config reloaded (next time you run opencode)."
+}
+
+load_latest_config() {
+    load_allowlist
+    load_opencode
+}
+
 # Start the container with all settings previously defined in compose.yml.
 container_start() {
     podman run -d \
@@ -99,12 +119,13 @@ container_start() {
         -v "${VOL_OPENCODE}:/home/coder/.config/opencode" \
         -v "${VOL_MITMPROXY_CA}:/opt/mitmproxy-ca" \
         "${IMAGE_NAME}"
+    load_latest_config
 }
 
 # Stop and remove the container (idempotent — safe to call when not running).
 container_stop() {
-    podman stop "${CONTAINER_NAME}" 2>/dev/null || true
-    podman rm   "${CONTAINER_NAME}" 2>/dev/null || true
+    podman stop "${CONTAINER_NAME}" 2>/dev/null && ok "Container stopped" || true
+    podman rm   "${CONTAINER_NAME}" 2>/dev/null && ok "Container removed" || true
 }
 
 cmd="${1:-help}"
@@ -207,11 +228,7 @@ case "${cmd}" in
 
     reload-allowlist)
         require_running
-        info "Copying updated allowlist into container..."
-        podman cp "${BASE_DIR}/config/mitmproxy/allowlist.py" \
-            "${CONTAINER_NAME}:/etc/mitmproxy/allowlist.py"
-        sleep 2
-        ok "Allowlist reloaded (mitmproxy file-watch picks up changes within ~1s)."
+        load_allowlist
         info "Run './manage.sh proxy-log' to confirm the new rules are active."
         ;;
 
