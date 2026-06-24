@@ -50,9 +50,11 @@ require_running() {
 }
 
 sandbox_workspace_link() {
-    rm -f sandbox
+    # TODO:  This is only really needed in SE Linux environments,
+    #        really it can be the same as the "workspace" directory otherwise.
+    rm -f "${BASE_DIR}/sandbox"
     SANDBOX_PATH=$(podman volume inspect --format '{{.Mountpoint}}' "${VOL_WORKSPACE}")
-    ln -fs "${SANDBOX_PATH}" sandbox
+    ln -fs "${SANDBOX_PATH}" "${BASE_DIR}/sandbox"
 }
 
 # Create any named volumes that do not already exist.
@@ -105,7 +107,7 @@ container_start() {
         --sysctl net.ipv6.conf.lo.disable_ipv6=1 \
         --cap-add NET_ADMIN \
         --security-opt no-new-privileges=true \
-        -p "127.0.0.1:${AGENT_SANDBOX_PORT:-6080}:6080" \
+        -p "127.0.0.1:${AGENT_SANDBOX_PORT}:6080" \
         -e "SCREEN_RESOLUTION=${SCREEN_RESOLUTION:-1600x900x24}" \
         -e "GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME:-Developer}" \
         -e "GIT_AUTHOR_EMAIL=${GIT_AUTHOR_EMAIL:-dev@sandbox.local}" \
@@ -128,16 +130,25 @@ container_stop() {
     podman rm   "${CONTAINER_NAME}" 2>/dev/null && ok "Container removed" || true
 }
 
+build_image() {
+    info "Building image..."
+    podman build -t "${IMAGE_NAME}" -f "${BASE_DIR}/Containerfile" "${BASE_DIR}"
+    ok "Build complete."
+}
+
 cmd="${1:-help}"
 
 case "${cmd}" in
     build)
-        info "Building image..."
-        podman build -t "${IMAGE_NAME}" -f Containerfile .
-        ok "Build complete."
+        build_image
         ;;
 
     start)
+        if ! podman image exists "${IMAGE_NAME}"; then
+            info "Image '${IMAGE_NAME}' does not exist..."
+            build_image
+        fi
+
         ensure_volumes
         ensure_network
         container_start
