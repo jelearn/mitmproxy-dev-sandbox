@@ -44,9 +44,30 @@ ok()    { echo -e "${GRN}[manage]${NC} $*"; }
 warn()  { echo -e "${YLW}[manage]${NC} $*"; }
 error() { echo -e "${RED}[manage]${NC} $*" >&2; exit 1; }
 
+
+sandbox_start() {
+    if ! podman image exists "${IMAGE_NAME}"; then
+        info "Image '${IMAGE_NAME}' does not exist..."
+        build_image
+    fi
+
+    ensure_volumes
+    ensure_network
+    container_start
+    sandbox_workspace_link
+    ok "Started: ${URL}"
+}
+
 require_running() {
-    podman ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$" \
-        || error "Container not running. Run: ./manage.sh start"
+    AUTO_START="$1"
+    if ! podman container exists "${CONTAINER_NAME}"; then
+        if [[ "${AUTO_START}" == "--start" ]]; then
+            info "Container '${CONTAINER_NAME}' not started..."
+            sandbox_start
+        else
+            error "Container not running. Run: ./manage.sh start"
+        fi
+    fi
 }
 
 sandbox_workspace_link() {
@@ -126,8 +147,13 @@ container_start() {
 
 # Stop and remove the container (idempotent — safe to call when not running).
 container_stop() {
-    podman stop "${CONTAINER_NAME}" 2>/dev/null && ok "Container stopped" || true
-    podman rm   "${CONTAINER_NAME}" 2>/dev/null && ok "Container removed" || true
+    if podman container exists "${CONTAINER_NAME}"; then
+        podman stop "${CONTAINER_NAME}" 2>/dev/null && ok "Container stopped" || true
+        podman rm   "${CONTAINER_NAME}" 2>/dev/null && ok "Container removed" || true
+        ok "Stopped."
+    else
+        info "${CONTAINER_NAME} not running."
+    fi
 }
 
 build_image() {
@@ -144,31 +170,17 @@ case "${cmd}" in
         ;;
 
     start)
-        if ! podman image exists "${IMAGE_NAME}"; then
-            info "Image '${IMAGE_NAME}' does not exist..."
-            build_image
-        fi
-
-        ensure_volumes
-        ensure_network
-        container_start
-        sleep 3
-        sandbox_workspace_link
-        ok "noVNC at: ${URL}"
+        sandbox_start
         ;;
 
     stop)
         container_stop
-        ok "Stopped."
         ;;
 
     restart)
         container_stop
-        ensure_volumes
-        ensure_network
-        container_start
-        sandbox_workspace_link
-        ok "Restarted. ${URL}"
+        sandbox_start
+        ok "Restart complete."
         ;;
 
     load_workspace)
@@ -302,37 +314,37 @@ case "${cmd}" in
     # ── Shell access ──────────────────────────────────────────
 
     shell)
-        require_running
+        require_running --start
         warn "Root shell in container."
         podman exec -it "${CONTAINER_NAME}" /bin/bash
         ;;
 
     coder)
-        require_running
+        require_running --start
         info "Shell as 'coder'..."
         podman exec -it --user coder "${CONTAINER_NAME}" /bin/bash -l -c "cd ~/workspace; bash"
         ;;
 
     claude)
-        require_running
+        require_running --start
         info "Running claude as 'coder'..."
         podman exec -it --user coder "${CONTAINER_NAME}" /bin/bash -l -c "cd ~/workspace && claude"
         ;;
 
     opencode)
-        require_running
+        require_running --start
         info "Running opencode as 'coder'..."
         podman exec -it --user coder "${CONTAINER_NAME}" /bin/bash -l -c "cd ~/workspace && opencode"
         ;;
 
     display)
-        require_running
+        require_running --start
         warn "Shell as 'display' user (proxy process owner)."
         podman exec -it --user display "${CONTAINER_NAME}" /bin/bash -l
         ;;
 
     mitm)
-        require_running
+        require_running --start
         warn "Shell as 'mitm' user (proxy process owner)."
         podman exec -it --user mitm "${CONTAINER_NAME}" /bin/bash -l
         ;;
@@ -370,14 +382,21 @@ case "${cmd}" in
         echo "Managment utility for the mitmproxy development Sandbox"
         echo ""
         echo "  $(basename "$0") <command>"
-        echo ""
+        echo -e "\nControls:\n"
         printf "  %-22s %s\n" "build"            "Build the podman image"
-        printf "  %-22s %s\n" "start"            "Start the container"
+        printf "  %-22s %s\n" "start"            "Start the container (and build image if it doesn't exist)"
         printf "  %-22s %s\n" "load_workspace"   "Replaces the ${CODER_USER} user's workspace in sandbox with: ${WORKSPACE_GUEST}"
         printf "  %-22s %s\n" "stop / restart"   "Stop or restart"
         printf "  %-22s %s\n" "status"           "Status + process user summary"
+        echo -e "\nShell Access: (will auto-start when used)\n"
+        printf "  %-22s %s\n" "shell"            "Root shell"
+        printf "  %-22s %s\n" "claude"           "Run Claude Code as coder"
+        printf "  %-22s %s\n" "opencode"         "Run opencode as coder"
+        printf "  %-22s %s\n" "coder"            "Shell as coder"
+        printf "  %-22s %s\n" "display"          "Shell as display"
+        printf "  %-22s %s\n" "mitm"             "Shell as mitm"
+        echo -e "\nMonitoring:\n"
         printf "  %-22s %s\n" "logs"             "Tail all logs"
-        echo ""
         printf "  %-22s %s\n" "proxy-log"        "Live ALLOWED/BLOCKED feed"
         printf "  %-22s %s\n" "blocked"          "Recent blocked requests"
         printf "  %-22s %s\n" "allowed"          "Recent allowed requests"
@@ -385,15 +404,9 @@ case "${cmd}" in
         printf "  %-22s %s\n" "verify-users"     "Confirm mitmproxy!=coder, coder!=root"
         printf "  %-22s %s\n" "firewall"         "Show iptables rules"
         printf "  %-22s %s\n" "ca-cert"          "Export CA cert to host (inspect only)"
-        echo ""
-        printf "  %-22s %s\n" "shell"            "Root shell"
-        printf "  %-22s %s\n" "claude"           "Run Claude Code as coder"
-        printf "  %-22s %s\n" "opencode"         "Run opencode as coder"
-        printf "  %-22s %s\n" "coder"            "Shell as coder"
-        printf "  %-22s %s\n" "display"          "Shell as display"
-        printf "  %-22s %s\n" "mitm"             "Shell as mitm"
-        printf "  %-22s %s\n" "reset-workspace"  "Delete workspace volume"
+        echo -e "\nClean-up:\n"
         printf "  %-22s %s\n" "reset-ca"         "Delete CA cert volume"
+        printf "  %-22s %s\n" "reset-workspace"  "Delete workspace volume"
         printf "  %-22s %s\n" "clean"            "Remove container, image, and network"
         echo ""
         ;;
