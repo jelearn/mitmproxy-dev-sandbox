@@ -59,7 +59,7 @@ sandbox_start() {
 }
 
 require_running() {
-    AUTO_START="$1"
+    AUTO_START="${1:-}"
     if ! podman container exists "${CONTAINER_NAME}"; then
         if [[ "${AUTO_START}" == "--start" ]]; then
             info "Container '${CONTAINER_NAME}' not started..."
