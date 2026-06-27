@@ -333,7 +333,7 @@ case "${cmd}" in
 
     # ── Shell access ──────────────────────────────────────────
 
-    shell)
+    root)
         require_running --start
         warn "Root shell in container."
         podman exec -it "${CONTAINER_NAME}" /bin/bash
@@ -409,12 +409,12 @@ case "${cmd}" in
         printf "  %-22s %s\n" "stop / restart"   "Stop or restart"
         printf "  %-22s %s\n" "status"           "Status + process user summary"
         echo -e "\nShell Access: (will auto-start when used)\n"
-        printf "  %-22s %s\n" "shell"            "Root shell"
         printf "  %-22s %s\n" "claude"           "Run Claude Code as coder"
         printf "  %-22s %s\n" "opencode"         "Run opencode as coder"
         printf "  %-22s %s\n" "coder"            "Shell as coder"
         printf "  %-22s %s\n" "display"          "Shell as display"
         printf "  %-22s %s\n" "mitm"             "Shell as mitm"
+        printf "  %-22s %s\n" "root"             "Root shell"
         echo -e "\nMonitoring:\n"
         printf "  %-22s %s\n" "logs"             "Tail all logs"
         printf "  %-22s %s\n" "proxy-log"        "Live ALLOWED/BLOCKED feed"
