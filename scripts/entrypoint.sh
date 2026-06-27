@@ -54,6 +54,13 @@ log()   { echo "[entrypoint] $(date '+%H:%M:%S') $*"; }
 # possibly remove this in future
 error() { echo "[entrypoint] $(date '+%H:%M:%S') ERROR: $*" >&2; bash; exit 1; }
 
+# Clear any stale readiness sentinel from a previous run. Podman's
+# --restart policy restarts the container without recreating its filesystem,
+# so /tmp persists across crash-restarts. Wiping here ensures that
+# wait_for_ready() in manage.sh always waits for this run's initialisation
+# rather than seeing a leftover sentinel from the previous one.
+rm -f /tmp/sandbox-ready
+
 # ── Step 4: Apply iptables REDIRECT ──────────────────────────
 # firewall.sh exempts MITM_UID (1101 = mitm user) from the
 # REDIRECT rule, NOT CODER_UID. coder's traffic always goes
@@ -186,6 +193,14 @@ runuser -u "${CODER_USER}" -- bash -c "
     git config --global http.sslCAInfo \"${CODER_CA_BUNDLE}\"
 "
 log "CA trust environment configured for '${CODER_USER}'."
+
+# Signal that the container's core environment is ready for exec commands.
+# Written here because this is the earliest point at which the coder user's
+# CA trust (NODE_EXTRA_CA_CERTS, SSL_CERT_FILE, etc.) is fully configured —
+# the minimum required for claude, shell, and other exec-based commands to
+# work correctly. manage.sh polls for this file in wait_for_ready() before
+# running any podman exec or podman cp after an auto-start.
+touch /tmp/sandbox-ready
 
 # ── Step 5: Start display services ───────────────────────────
 # Xtigervnc, Openbox, and noVNC run as the 'display' user.

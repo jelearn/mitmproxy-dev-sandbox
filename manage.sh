@@ -97,6 +97,25 @@ ensure_network() {
         || podman network create "${CONTAINER_NAME}_net" > /dev/null
 }
 
+wait_for_ready() {
+    # Poll for the sentinel file written by entrypoint.sh once the coder user's
+    # CA environment is fully configured. This prevents podman exec and podman cp
+    # calls from racing ahead of container initialisation on auto-start.
+    local max_secs=30
+    local i=0
+    info "Waiting for container to be ready..."
+    while (( i < max_secs )); do
+        if podman exec "${CONTAINER_NAME}" test -f /tmp/sandbox-ready 2>/dev/null; then
+            ok "Container ready."
+            return 0
+        fi
+        sleep 1
+        # Expression avoids conflict with: set -euo
+        i=$(( i + 1 ))
+    done
+    error "Container did not become ready within ${max_secs}s. Run './manage.sh logs' to investigate."
+}
+
 load_allowlist() {
     info "Copying updated allowlist into container..."
     podman cp "${BASE_DIR}/config/mitmproxy/allowlist.py" \
@@ -142,14 +161,15 @@ container_start() {
         -v "${VOL_OPENCODE}:/home/coder/.config/opencode" \
         -v "${VOL_MITMPROXY_CA}:/opt/mitmproxy-ca" \
         "${IMAGE_NAME}"
+    wait_for_ready
     load_latest_config
 }
 
 # Stop and remove the container (idempotent — safe to call when not running).
 container_stop() {
     if podman container exists "${CONTAINER_NAME}"; then
-        podman stop "${CONTAINER_NAME}" 2>/dev/null && ok "Container stopped" || true
-        podman rm   "${CONTAINER_NAME}" 2>/dev/null && ok "Container removed" || true
+        if podman stop "${CONTAINER_NAME}" 2>/dev/null; then ok "Container stopped"; fi
+        if podman rm   "${CONTAINER_NAME}" 2>/dev/null; then ok "Container removed"; fi
         ok "Stopped."
     else
         info "${CONTAINER_NAME} not running."
