@@ -45,6 +45,13 @@
 #   --app="${CODE_SERVER_URL}"         Open in app mode (no address bar, tabs, or browser
 #                                      chrome) pointed at the code-server instance, making
 #                                      it feel like a standalone desktop app.
+#
+# Sandbox:
+#   --no-sandbox                       Added automatically when running under Docker without
+#                                      userns-remap. Chromium's renderer sandbox requires
+#                                      CLONE_NEWUSER; Docker blocks this by default. Podman
+#                                      (rootless) runs inside a user namespace already, so
+#                                      nesting is permitted and the sandbox works normally.
 # =============================================================
 
 set -euo pipefail
@@ -57,7 +64,19 @@ for _ in $(seq 1 30); do
     sleep 1
 done
 
+# Chromium's renderer sandbox requires user namespace creation (CLONE_NEWUSER).
+# Docker blocks this by default; detect it and fall back to --no-sandbox rather
+# than crashing. Gated on CONTAINER_RUNTIME=docker so Podman is never affected.
+SANDBOX_ARGS=()
+if [[ "${CONTAINER_RUNTIME:-}" == "docker" ]]; then
+    if ! unshare --user -- true 2>/dev/null; then
+        echo "[chromium] WARNING: user namespaces unavailable — starting with --no-sandbox."
+        SANDBOX_ARGS=("--no-sandbox")
+    fi
+fi
+
 exec chromium \
+    "${SANDBOX_ARGS[@]}" \
     --disable-gpu \
     --disable-software-rasterizer \
     --disable-dev-shm-usage \

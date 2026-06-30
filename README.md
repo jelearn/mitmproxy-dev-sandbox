@@ -8,20 +8,30 @@ container executes on your host OS.
 
 To get started, after cloning this repo:
 
-0) Install `podman` (>= 4.9.3).
+0) Install `podman` (>= 4.9.3) or Docker (>= 29.6.0).
+    - If for whatever reason both are installed, `podman` is chosen by default.
+        - In this scenario, if you prefer Docker, create/edit your `.env` file in
+          your checkout to have a line like this: `CONTAINER_RUNTIME=docker`
+    - Warning:  The default Docker container configuration prevents Chromium
+      from running it's sandbox, so it runs without a sandbox.
+
 1) Run `./manage.sh start` to start the containerized sandbox environment.
     - If not already built, it will create the required image for the sandbox.
     - This is the same as: `./manage.sh build`
+
 2) Run `./manage.sh claude` to start a shell into Claude Code.
+
 3) Follow the Claude Code instructions to setup/authorize it to
    access your account (copy URL into browser and paste in
    authorization code).
+
 4) Work on the command-line and/or go to the `code-server` IDE in a browser.
     - Basic command-line: `./manage.sh coder`
     - Agent options:
         - `./manage.sh claude`
         - `./manage.sh opencode`
     - `code-server` via the [local VNC instance](http://localhost:6080/vnc.html?resize=remote&autoconnect=true)
+
 5) To access to the container's sandbox workspace, you have two options which
    depends on your setup.
     - For the most permissive setups, you may have read-write access to: `./sandbox`

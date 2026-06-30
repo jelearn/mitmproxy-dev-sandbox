@@ -80,6 +80,7 @@ General guidance:
         - For example: `Claude Sonnet 4.6 <noreply@anthropic.com>`
     - This should be done by adding a co-author line at the end of each commit message, for example:
         `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>`
+    - Do not include links to sessions.
 - Changes should be made with instructive comments explaining why they are required so that the project is as
   informative as possible for those learning the code base.
 

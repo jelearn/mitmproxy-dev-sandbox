@@ -180,7 +180,7 @@ RUN apt-get clean \
     && apt autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
-FROM base as base-user
+FROM base AS base-user
 
 # TODO: decide if minimum supported podman version should be 4.9.3 or 5.x.
 # User identity ARGs — override at build time if your host UIDs differ:
