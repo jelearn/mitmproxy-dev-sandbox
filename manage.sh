@@ -13,6 +13,13 @@ CODER_USER="coder"
 WORKSPACE_GUEST="/home/${CODER_USER}/workspace"
 WORKSPACE_HOST="${BASE_DIR}/workspace"
 
+# Supported .env overrides:
+#   CONTAINER_RUNTIME=docker   # force docker (default: auto-detect, podman preferred)
+#   AGENT_SANDBOX_PORT=6080
+#   AGENT_SANDBOX_NAME=...
+#   SCREEN_RESOLUTION=1600x900x24
+#   GIT_AUTHOR_NAME=Developer
+#   GIT_AUTHOR_EMAIL=dev@sandbox.local
 if [[ -f "${BASE_DIR}/.env" ]]; then
     # shellcheck source=/dev/null  # .env is intentionally absent from the repo
     source "${BASE_DIR}/.env"
@@ -31,7 +38,7 @@ URL="http://localhost:${AGENT_SANDBOX_PORT}/vnc.html?resize=remote&autoconnect=t
 IMAGE_NAME="${CONTAINER_NAME}"
 
 # Named volumes — prefixed with CONTAINER_NAME to preserve the naming convention that
-# podman compose previously used (<project>_<volume>), keeping existing data intact.
+# the previous compose-based setup used (<project>_<volume>), keeping existing data intact.
 VOL_WORKSPACE="${CONTAINER_NAME}_workspace_data"
 VOL_VSCODE_EXT="${CONTAINER_NAME}_vscode_extensions"
 VOL_CLAUDE_AI="${CONTAINER_NAME}_claude_ai"
@@ -44,9 +51,44 @@ ok()    { echo -e "${GRN}[manage]${NC} $*"; }
 warn()  { echo -e "${YLW}[manage]${NC} $*"; }
 error() { echo -e "${RED}[manage]${NC} $*" >&2; exit 1; }
 
+# Runtime requirements: podman or docker
+CONTAINER_DEPS="Install podman (>= 4.9.3) or docker (>= 29.6.0)."
+# Prefer podman when both are installed; override via CONTAINER_RUNTIME in .env.
+if [[ -n "${CONTAINER_RUNTIME:-}" ]]; then
+    CRT="${CONTAINER_RUNTIME}"
+elif command -v podman &>/dev/null; then
+    CRT="podman"
+elif command -v docker &>/dev/null; then
+    CRT="docker"
+else
+    error "No container runtime found. ${CONTAINER_DEPS}"
+fi
+# Verify the resolved runtime is actually executable (catches bad CONTAINER_RUNTIME overrides).
+command -v "${CRT}" &>/dev/null \
+    || error "Container runtime '${CRT}' not found. ${CONTAINER_DEPS}"
+
+# Portable wrappers for subcommands that differ between podman and docker.
+# podman has dedicated 'image exists' / 'container exists' subcommands;
+# docker achieves the same result via inspect with a suppressed exit code.
+ct_image_exists() {
+    if [[ "${CRT}" == "podman" ]]; then
+        "${CRT}" image exists "$1"
+    else
+        "${CRT}" image inspect "$1" > /dev/null 2>&1
+    fi
+}
+
+ct_container_exists() {
+    if [[ "${CRT}" == "podman" ]]; then
+        "${CRT}" container exists "$1"
+    else
+        "${CRT}" inspect --type container "$1" > /dev/null 2>&1
+    fi
+}
+
 
 sandbox_start() {
-    if ! podman image exists "${IMAGE_NAME}"; then
+    if ! ct_image_exists "${IMAGE_NAME}"; then
         info "Image '${IMAGE_NAME}' does not exist..."
         build_image
     fi
@@ -60,7 +102,7 @@ sandbox_start() {
 
 require_running() {
     AUTO_START="${1:-}"
-    if ! podman container exists "${CONTAINER_NAME}"; then
+    if ! ct_container_exists "${CONTAINER_NAME}"; then
         if [[ "${AUTO_START}" == "--start" ]]; then
             info "Container '${CONTAINER_NAME}' not started..."
             sandbox_start
@@ -74,7 +116,7 @@ sandbox_workspace_link() {
     # TODO:  This is only really needed in SE Linux environments,
     #        really it can be the same as the "workspace" directory otherwise.
     rm -f "${BASE_DIR}/sandbox"
-    SANDBOX_PATH=$(podman volume inspect --format '{{.Mountpoint}}' "${VOL_WORKSPACE}")
+    SANDBOX_PATH=$("${CRT}" volume inspect --format '{{.Mountpoint}}' "${VOL_WORKSPACE}")
     ln -fs "${SANDBOX_PATH}" "${BASE_DIR}/sandbox"
 }
 
@@ -83,29 +125,29 @@ ensure_volumes() {
     local vol
     for vol in "${VOL_WORKSPACE}" "${VOL_VSCODE_EXT}" "${VOL_CLAUDE_AI}" \
                "${VOL_OPENCODE}" "${VOL_MITMPROXY_CA}"; do
-        podman volume inspect "${vol}" > /dev/null 2>&1 \
-            || podman volume create "${vol}" > /dev/null
+        "${CRT}" volume inspect "${vol}" > /dev/null 2>&1 \
+            || "${CRT}" volume create "${vol}" > /dev/null
     done
 }
 
 # Create the dedicated bridge network if it does not already exist.
-# podman run defaults to slirp4netns for rootless containers; an explicit bridge
-# network is required so that iptables rules inside the container behave the same
-# way they would on a standard kernel bridge (matching previous podman compose behaviour).
+# The default rootless runtime uses slirp4netns/pasta (podman) or a bridge (docker);
+# an explicit named bridge network is required so that iptables rules inside the
+# container behave the same way they would on a standard kernel bridge.
 ensure_network() {
-    podman network inspect "${CONTAINER_NAME}_net" > /dev/null 2>&1 \
-        || podman network create "${CONTAINER_NAME}_net" > /dev/null
+    "${CRT}" network inspect "${CONTAINER_NAME}_net" > /dev/null 2>&1 \
+        || "${CRT}" network create "${CONTAINER_NAME}_net" > /dev/null
 }
 
 wait_for_ready() {
     # Poll for the sentinel file written by entrypoint.sh once the coder user's
-    # CA environment is fully configured. This prevents podman exec and podman cp
-    # calls from racing ahead of container initialisation on auto-start.
+    # CA environment is fully configured. This prevents exec and cp calls from
+    # racing ahead of container initialisation on auto-start.
     local max_secs=30
     local i=0
     info "Waiting for container to be ready..."
     while (( i < max_secs )); do
-        if podman exec "${CONTAINER_NAME}" test -f /tmp/sandbox-ready 2>/dev/null; then
+        if "${CRT}" exec "${CONTAINER_NAME}" test -f /tmp/sandbox-ready 2>/dev/null; then
             ok "Container ready."
             return 0
         fi
@@ -118,7 +160,7 @@ wait_for_ready() {
 
 load_allowlist() {
     info "Copying updated allowlist into container..."
-    podman cp "${BASE_DIR}/config/mitmproxy/allowlist.py" \
+    "${CRT}" cp "${BASE_DIR}/config/mitmproxy/allowlist.py" \
         "${CONTAINER_NAME}:/etc/mitmproxy/allowlist.py"
     sleep 2
     ok "Allowlist reloaded (mitmproxy file-watch picks up changes within ~1s)."
@@ -126,7 +168,7 @@ load_allowlist() {
 
 load_opencode() {
     info "Copying updated opencode config into container..."
-    podman cp "${BASE_DIR}/config/opencode/config.json" \
+    "${CRT}" cp "${BASE_DIR}/config/opencode/config.json" \
         "${CONTAINER_NAME}:/home/${CODER_USER}/.config/opencode/config.json"
     ok "opencode config reloaded (next time you run opencode)."
 }
@@ -138,8 +180,17 @@ load_latest_config() {
 
 # Start the container with all settings previously defined in compose.yml.
 container_start() {
-    podman run -d \
-        --replace \
+    # Podman supports --replace for atomic container replacement.
+    # Docker has no equivalent flag; an explicit rm before run achieves the same result.
+    local replace_opt=()
+    if [[ "${CRT}" == "podman" ]]; then
+        replace_opt=("--replace")
+    else
+        "${CRT}" rm "${CONTAINER_NAME}" 2>/dev/null || true
+    fi
+
+    "${CRT}" run -d \
+        "${replace_opt[@]}" \
         --name "${CONTAINER_NAME}" \
         --network "${CONTAINER_NAME}_net" \
         --sysctl net.ipv6.conf.all.disable_ipv6=1 \
@@ -167,9 +218,9 @@ container_start() {
 
 # Stop and remove the container (idempotent — safe to call when not running).
 container_stop() {
-    if podman container exists "${CONTAINER_NAME}"; then
-        if podman stop "${CONTAINER_NAME}" 2>/dev/null; then ok "Container stopped"; fi
-        if podman rm   "${CONTAINER_NAME}" 2>/dev/null; then ok "Container removed"; fi
+    if ct_container_exists "${CONTAINER_NAME}"; then
+        if "${CRT}" stop "${CONTAINER_NAME}" 2>/dev/null; then ok "Container stopped"; fi
+        if "${CRT}" rm   "${CONTAINER_NAME}" 2>/dev/null; then ok "Container removed"; fi
         ok "Stopped."
     else
         info "${CONTAINER_NAME} not running."
@@ -178,7 +229,7 @@ container_stop() {
 
 build_image() {
     info "Building image..."
-    podman build -t "${IMAGE_NAME}" -f "${BASE_DIR}/Containerfile" "${BASE_DIR}"
+    "${CRT}" build -t "${IMAGE_NAME}" -f "${BASE_DIR}/Containerfile" "${BASE_DIR}"
     ok "Build complete."
 }
 
@@ -211,26 +262,27 @@ case "${cmd}" in
         # NOTE: The deletion method using rm -rf means that a directory may be found
         # and still deleted, so we ignore all failures, then check that everything is gone after
         # to be sure.
-        podman exec "${CONTAINER_NAME}" find "${WORKSPACE_GUEST}" -mindepth 1 -exec rm -rf "{}" \; || true
-        podman exec -e WORKSPACE_GUEST="${WORKSPACE_GUEST}" "${CONTAINER_NAME}" \
+        "${CRT}" exec "${CONTAINER_NAME}" find "${WORKSPACE_GUEST}" -mindepth 1 -exec rm -rf "{}" \; || true
+        # shellcheck disable=SC2016  # single quotes intentional: ${WORKSPACE_GUEST} is a container-side env var expanded by guest sh
+        "${CRT}" exec -e WORKSPACE_GUEST="${WORKSPACE_GUEST}" "${CONTAINER_NAME}" \
             sh -c 'test -z "$(find "${WORKSPACE_GUEST}" -mindepth 1 -print -quit )"' \
             || error "Workspace not fully removed."
-        podman cp "${WORKSPACE_HOST}" "${CONTAINER_NAME}:/home/coder/"
-        podman exec "${CONTAINER_NAME}" chown -R "${CODER_USER}:${CODER_USER}" "${WORKSPACE_GUEST}"
+        "${CRT}" cp "${WORKSPACE_HOST}" "${CONTAINER_NAME}:/home/coder/"
+        "${CRT}" exec "${CONTAINER_NAME}" chown -R "${CODER_USER}:${CODER_USER}" "${WORKSPACE_GUEST}"
         ok "Workspace loaded."
     ;;
 
     status)
-        if podman ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+        if "${CRT}" ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
             ok "RUNNING"
-            podman ps --filter "name=${CONTAINER_NAME}" \
+            "${CRT}" ps --filter "name=${CONTAINER_NAME}" \
                 --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
             echo ""; info "noVNC: ${URL}"
 
             # Show which user each key process is running as
             echo ""
             info "Process user verification:"
-            podman exec "${CONTAINER_NAME}" \
+            "${CRT}" exec "${CONTAINER_NAME}" \
                 ps -eo user,pid,comm \
                 | awk '$3~/mitmdump|code-server|chromium/{printf "  %-12s pid=%-6s %s\n",$1,$2,$3}'
         else
@@ -240,7 +292,7 @@ case "${cmd}" in
 
     logs)
         require_running
-        podman logs -f "${CONTAINER_NAME}"
+        "${CRT}" logs -f "${CONTAINER_NAME}"
         ;;
 
     # ── Proxy commands ────────────────────────────────────────
@@ -248,7 +300,7 @@ case "${cmd}" in
     proxy-log)
         require_running
         info "Live proxy traffic (Ctrl-C to stop):"
-        podman exec "${CONTAINER_NAME}" \
+        "${CRT}" exec "${CONTAINER_NAME}" \
             tail -n 80 -f /home/mitm/logs/mitmproxy.log \
             | grep --line-buffered -E '\[(ALLOWED|BLOCKED|ALLOWLIST)\]'
         ;;
@@ -256,7 +308,7 @@ case "${cmd}" in
     blocked)
         require_running
         info "Recently blocked requests:"
-        podman exec "${CONTAINER_NAME}" \
+        "${CRT}" exec "${CONTAINER_NAME}" \
             grep '\[BLOCKED\]' /home/mitm/logs/mitmproxy.log | tail -50 \
             || info "None yet."
         ;;
@@ -264,7 +316,7 @@ case "${cmd}" in
     allowed)
         require_running
         info "Recently allowed requests:"
-        podman exec "${CONTAINER_NAME}" \
+        "${CRT}" exec "${CONTAINER_NAME}" \
             grep '\[ALLOWED\]' /home/mitm/logs/mitmproxy.log | tail -50 \
             || info "None yet."
         ;;
@@ -280,16 +332,16 @@ case "${cmd}" in
         require_running
         info "Verifying process ownership..."
         echo ""
-        podman exec "${CONTAINER_NAME}" \
+        "${CRT}" exec "${CONTAINER_NAME}" \
             ps -eo user,pid,ppid,comm,args \
             | grep -E 'USER|mitmdump|code-server|chromium|tigervnc|websockify|openbox'
         echo ""
 
-        MITM_USER=$(podman exec "${CONTAINER_NAME}" \
+        MITM_USER=$("${CRT}" exec "${CONTAINER_NAME}" \
             ps -eo user,comm | awk '$2=="mitmdump"{print $1}' | head -1)
-        CODER_CODESERVER=$(podman exec "${CONTAINER_NAME}" \
+        CODER_CODESERVER=$("${CRT}" exec "${CONTAINER_NAME}" \
             ps -ef | grep "/usr/lib/code-server/lib/node /usr/lib/code-server --bind-addr 127.0.0.1" | awk '{print $1}' | head -1)
-        DISPLAY_VNC=$(podman exec "${CONTAINER_NAME}" \
+        DISPLAY_VNC=$("${CRT}" exec "${CONTAINER_NAME}" \
             ps -eo user,comm | awk '$2~/[Xx]tigervnc|[Xx]vnc/{print $1}' | head -1)
 
         if [[ "${MITM_USER}" == "mitm" ]]; then
@@ -314,19 +366,19 @@ case "${cmd}" in
     firewall)
         require_running
         info "iptables filter INPUT:"
-        podman exec "${CONTAINER_NAME}" iptables -L INPUT -n --line-numbers -v
+        "${CRT}" exec "${CONTAINER_NAME}" iptables -L INPUT -n --line-numbers -v
         echo ""
         info "iptables nat OUTPUT (REDIRECT rules):"
-        podman exec "${CONTAINER_NAME}" iptables -t nat -L OUTPUT -n --line-numbers -v
+        "${CRT}" exec "${CONTAINER_NAME}" iptables -t nat -L OUTPUT -n --line-numbers -v
         echo ""
         info "iptables filter OUTPUT:"
-        podman exec "${CONTAINER_NAME}" iptables -L OUTPUT -n --line-numbers -v
+        "${CRT}" exec "${CONTAINER_NAME}" iptables -L OUTPUT -n --line-numbers -v
         ;;
 
     ca-cert)
         require_running
         info "Exporting mitmproxy CA cert to ./mitmproxy-sandbox-ca.pem"
-        podman exec "${CONTAINER_NAME}" cat /opt/mitmproxy-ca/mitmproxy-ca-cert.pem \
+        "${CRT}" exec "${CONTAINER_NAME}" cat /opt/mitmproxy-ca/mitmproxy-ca-cert.pem \
             > ./mitmproxy-sandbox-ca.pem
         ok "Saved. Do NOT import this into your host browser trust store."
         ;;
@@ -336,37 +388,37 @@ case "${cmd}" in
     root)
         require_running --start
         warn "Root shell in container."
-        podman exec -it "${CONTAINER_NAME}" /bin/bash
+        "${CRT}" exec -it "${CONTAINER_NAME}" /bin/bash
         ;;
 
     coder)
         require_running --start
         info "Shell as 'coder'..."
-        podman exec -it --user coder "${CONTAINER_NAME}" /bin/bash -l -c "cd ~/workspace; bash"
+        "${CRT}" exec -it --user coder "${CONTAINER_NAME}" /bin/bash -l -c "cd ~/workspace; bash"
         ;;
 
     claude)
         require_running --start
         info "Running claude as 'coder'..."
-        podman exec -it --user coder "${CONTAINER_NAME}" /bin/bash -l -c "cd ~/workspace && claude"
+        "${CRT}" exec -it --user coder "${CONTAINER_NAME}" /bin/bash -l -c "cd ~/workspace && claude"
         ;;
 
     opencode)
         require_running --start
         info "Running opencode as 'coder'..."
-        podman exec -it --user coder "${CONTAINER_NAME}" /bin/bash -l -c "cd ~/workspace && opencode"
+        "${CRT}" exec -it --user coder "${CONTAINER_NAME}" /bin/bash -l -c "cd ~/workspace && opencode"
         ;;
 
     display)
         require_running --start
         warn "Shell as 'display' user (proxy process owner)."
-        podman exec -it --user display "${CONTAINER_NAME}" /bin/bash -l
+        "${CRT}" exec -it --user display "${CONTAINER_NAME}" /bin/bash -l
         ;;
 
     mitm)
         require_running --start
         warn "Shell as 'mitm' user (proxy process owner)."
-        podman exec -it --user mitm "${CONTAINER_NAME}" /bin/bash -l
+        "${CRT}" exec -it --user mitm "${CONTAINER_NAME}" /bin/bash -l
         ;;
 
     # ── Volume management ─────────────────────────────────────
@@ -375,7 +427,7 @@ case "${cmd}" in
         warn "Deletes all workspace files."
         read -rp "Sure? [y/N] " c; [[ "${c,,}" == "y" ]] || exit 0
         container_stop
-        podman volume rm "${VOL_WORKSPACE}" 2>/dev/null || true
+        "${CRT}" volume rm "${VOL_WORKSPACE}" 2>/dev/null || true
         ok "Workspace removed."
         ;;
 
@@ -384,7 +436,7 @@ case "${cmd}" in
         warn "A new CA is generated on next start and reinstalled into Chromium."
         read -rp "Sure? [y/N] " c; [[ "${c,,}" == "y" ]] || exit 0
         container_stop
-        podman volume rm "${VOL_MITMPROXY_CA}" 2>/dev/null || true
+        "${CRT}" volume rm "${VOL_MITMPROXY_CA}" 2>/dev/null || true
         ok "CA volume removed."
         ;;
 
@@ -392,8 +444,8 @@ case "${cmd}" in
         warn "Removes container, image, and network."
         read -rp "Sure? [y/N] " c; [[ "${c,,}" == "y" ]] || exit 0
         container_stop
-        podman rmi "${IMAGE_NAME}" 2>/dev/null || true
-        podman network rm "${CONTAINER_NAME}_net" 2>/dev/null || true
+        "${CRT}" rmi "${IMAGE_NAME}" 2>/dev/null || true
+        "${CRT}" network rm "${CONTAINER_NAME}_net" 2>/dev/null || true
         ok "Cleaned."
         ;;
 
@@ -402,8 +454,9 @@ case "${cmd}" in
         echo "Managment utility for the mitmproxy development Sandbox"
         echo ""
         echo "  $(basename "$0") <command>"
+        info "Runtime: ${CRT}"
         echo -e "\nControls:\n"
-        printf "  %-22s %s\n" "build"            "Build the podman image"
+        printf "  %-22s %s\n" "build"            "Build the container image"
         printf "  %-22s %s\n" "start"            "Start the container (and build image if it doesn't exist)"
         printf "  %-22s %s\n" "load_workspace"   "Replaces the ${CODER_USER} user's workspace in sandbox with: ${WORKSPACE_GUEST}"
         printf "  %-22s %s\n" "stop / restart"   "Stop or restart"

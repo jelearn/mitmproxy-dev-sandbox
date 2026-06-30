@@ -8,7 +8,7 @@ container executes on your host OS.
 
 To get started, after cloning this repo:
 
-0) Install `podman` (>= 4.9.3).
+0) Install `podman` (>= 4.9.3) or Docker (>= 29.6.0).
 1) Run `./manage.sh start` to start the containerized sandbox environment.
     - If not already built, it will create the required image for the sandbox.
     - This is the same as: `./manage.sh build`
