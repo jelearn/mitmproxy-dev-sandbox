@@ -45,6 +45,18 @@ Notes on issues and things to look-into:
       "github.copilot.walkthroughAdded": true,
       "chat.disableAIFeatures": true
       ```
+- [X] Support Docker as well as Podman?
+    - DONE:  Initially there seemed too many podman instances in the `manage.sh`
+      script and too many cases where the API would need to be mapped to both while
+      taking into consideration argument differences, etc. (error prone and
+      tedious to maintain).  However, on further review, it seems that now that
+      podman compose is not used, the APIs are largely similar, so support was
+      added... but there are differences:
+        - The userns-remap is not used by default by Docker, preventing Chromium
+          sandboxing, so running with and without is supported.
+        - Docker injects its own firewall rules in the container, unlike podmand,
+          for DNS, which interferred with existing sandbox container firewall
+          rules, so they needed to be adjusted to be more focused when editing.
 - [X] Remove the dependency on podman-compose and imply use podman directly.
 - [X] Work on updating the AGENTS.md to ensure all scripts are checked though
       appropriate linting or syntax check utilties: e.g. pylint & shellcheck
@@ -107,11 +119,6 @@ Notes on issues and things to look-into:
     - coder granted X11 access via xhost +SI:localuser:coder.
 - [X] Re-visit the vnc path lookup in the entrypoint.sh as it has issues.
     - DONE:  This is assumed done as there doesn't seem to be any issues currently.
-- [X] Support Docker as well as Podman?
-    - WON'T DO:  There are too many uses of podman in the `manage.sh` script
-      and too many cases where the API would need to be mapped to both while
-      taking into consideration argument differences, etc. (error prone and
-      tedious to maintain).
 - [X] Clarify `reload-allowlist` behavior: mitmproxy 10.3.1 registers no SIGHUP
       handler (SIGHUP would terminate the process). The script addon has a built-in
       1-second file-watch poller — `podman cp` updating the mtime is sufficient for
