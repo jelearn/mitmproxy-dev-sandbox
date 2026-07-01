@@ -86,8 +86,23 @@ ct_container_exists() {
     fi
 }
 
+# Docker containers cannot create user namespaces (needed for Chromium's renderer
+# sandbox) unless the daemon is configured with userns-remap. Check the daemon's
+# reported security options and warn early so the user isn't surprised by the
+# --no-sandbox fallback that launch-chromium.sh applies at runtime.
+check_userns_docker() {
+    if ! "${CRT}" info --format '{{.SecurityOptions}}' 2>/dev/null \
+            | grep -q 'name=userns'; then
+        warn "Docker user namespace remapping is not enabled and Chromium will run without its renderer sandbox (--no-sandbox)."
+        info "To fix: create/edit /etc/docker/daemon.json and add {\"userns-remap\": \"default\"}, then restart Docker."
+    fi
+}
 
 sandbox_start() {
+    if [[ "${CRT}" == "docker" ]]; then
+        check_userns_docker
+    fi
+
     if ! ct_image_exists "${IMAGE_NAME}"; then
         info "Image '${IMAGE_NAME}' does not exist..."
         build_image
@@ -202,6 +217,7 @@ container_start() {
         -e "SCREEN_RESOLUTION=${SCREEN_RESOLUTION:-1600x900x24}" \
         -e "GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME:-Developer}" \
         -e "GIT_AUTHOR_EMAIL=${GIT_AUTHOR_EMAIL:-dev@sandbox.local}" \
+        -e "CONTAINER_RUNTIME=${CRT}" \
         --memory 8g \
         --cpus 4.0 \
         --shm-size 1g \
