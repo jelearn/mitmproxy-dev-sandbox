@@ -45,7 +45,7 @@ Notes on issues and things to look-into:
       "github.copilot.walkthroughAdded": true,
       "chat.disableAIFeatures": true
       ```
-- [X] Support Docker as well as Podman?
+- [x] Support Docker as well as Podman?
     - DONE:  Initially there seemed too many podman instances in the `manage.sh`
       script and too many cases where the API would need to be mapped to both while
       taking into consideration argument differences, etc. (error prone and
@@ -54,6 +54,8 @@ Notes on issues and things to look-into:
       added... but there are differences:
         - The userns-remap is not used by default by Docker, preventing Chromium
           sandboxing, so running with and without is supported.
+            - [ ] Instructions on how to support the feature and Chromium sandboxing
+                  do not work, and need to be investigated further.
         - Docker injects its own firewall rules in the container, unlike podmand,
           for DNS, which interferred with existing sandbox container firewall
           rules, so they needed to be adjusted to be more focused when editing.
