@@ -69,11 +69,37 @@ log "User IDs — coder: ${CODER_UID}, mitm: ${MITM_UID}, display: ${DISPLAY_UID
 log "REDIRECT exemption will be granted to mitm (${MITM_UID}) ONLY."
 
 flush-rules() {
-    # ── Flush existing rules ──────────────────────────────────────
+    # nat INPUT and filter OUTPUT are owned entirely by this script — always safe to wipe.
     iptables -t nat -F INPUT 2>/dev/null || true
     iptables -F INPUT 2>/dev/null || true
-    iptables -t nat -F OUTPUT 2>/dev/null || true
     iptables -F OUTPUT 2>/dev/null || true
+
+    if [[ "${1:-}" == "--full" ]]; then
+        # Full flush: wipe all nat OUTPUT rules, including those injected by the
+        # container runtime. Reserved for the --flush CLI option, which is used to
+        # fully reset the firewall to an open state for debugging or re-provisioning.
+        iptables -t nat -F OUTPUT 2>/dev/null || true
+    else
+        # Surgical flush: remove only the three nat OUTPUT rules this script adds,
+        # leaving any runtime-injected rules intact.
+        #
+        # Docker injects DNAT rules into nat OUTPUT at container start to redirect
+        # DNS queries for 127.0.0.11:53 to its embedded resolver socket. Flushing
+        # the entire chain destroys those rules, making 127.0.0.11 unreachable and
+        # breaking all hostname resolution inside the container — even though our
+        # filter OUTPUT ACCEPT rules for port 53 are still present, there is no
+        # longer a listener behind the virtual IP for them to reach.
+        iptables -t nat -D OUTPUT \
+            -p tcp -d 127.0.0.0/8 -j RETURN 2>/dev/null || true
+        iptables -t nat -D OUTPUT \
+            -p tcp --dport 443 \
+            -m owner --uid-owner "${CODER_UID}" \
+            -j REDIRECT --to-ports "${MITM_PORT}" 2>/dev/null || true
+        iptables -t nat -D OUTPUT \
+            -p tcp --dport 80 \
+            -m owner --uid-owner "${CODER_UID}" \
+            -j REDIRECT --to-ports "${MITM_PORT}" 2>/dev/null || true
+    fi
 }
 
 case "${1:-}" in
@@ -90,7 +116,7 @@ case "${1:-}" in
         ;;
     --flush)
         log "Flushing all rules and resetting to ACCEPT..."
-        flush-rules
+        flush-rules --full
         log "Done. All outbound traffic now permitted."
         exit 0
         ;;
