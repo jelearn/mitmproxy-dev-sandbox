@@ -214,7 +214,6 @@ container_start() {
         --memory 8g \
         --cpus 4.0 \
         --shm-size 1g \
-        --restart unless-stopped \
         -v "${VOL_WORKSPACE}:/home/coder/workspace" \
         -v "${VOL_VSCODE_EXT}:/home/coder/.local/share/code-server/extensions" \
         -v "${VOL_CLAUDE_AI}:/home/coder/.claude" \
