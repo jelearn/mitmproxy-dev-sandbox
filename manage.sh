@@ -86,25 +86,6 @@ ct_container_exists() {
     fi
 }
 
-# Returns "1" if the runtime has user namespace support active, "0" otherwise.
-# Podman rootless always qualifies. Docker qualifies when running in rootless
-# mode (name=rootless) or with userns-remap enabled (name=userns). Emits a
-# warning and returns "0" when Docker has neither configured, so the caller
-# can pass USERNS_ACTIVE into the container for launch-chromium.sh to act on.
-userns_active_flag() {
-    if [[ "${CRT}" == "podman" ]]; then
-        echo 1
-        return
-    fi
-    if "${CRT}" info --format '{{.SecurityOptions}}' 2>/dev/null \
-            | grep -qE 'name=rootless|name=userns'; then
-        echo 1
-    else
-        warn "Docker has no user namespace support active; Chromium will run without its renderer sandbox (--no-sandbox)."
-        info "Options: run Docker in rootless mode, or add {\"userns-remap\": \"default\"} to /etc/docker/daemon.json and restart Docker."
-        echo 0
-    fi
-}
 
 sandbox_start() {
     if ! ct_image_exists "${IMAGE_NAME}"; then
@@ -221,7 +202,6 @@ container_start() {
         -e "SCREEN_RESOLUTION=${SCREEN_RESOLUTION:-1600x900x24}" \
         -e "GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME:-Developer}" \
         -e "GIT_AUTHOR_EMAIL=${GIT_AUTHOR_EMAIL:-dev@sandbox.local}" \
-        -e "USERNS_ACTIVE=$(userns_active_flag)" \
         --memory 8g \
         --cpus 4.0 \
         --shm-size 1g \
@@ -248,7 +228,9 @@ container_stop() {
 
 build_image() {
     info "Building image..."
-    "${CRT}" build -t "${IMAGE_NAME}" -f "${BASE_DIR}/Containerfile" "${BASE_DIR}"
+    local build_args=()
+    [[ "${CRT}" == "docker" ]] && build_args+=("--build-arg" "CONTAINER_RUNTIME=docker")
+    "${CRT}" build "${build_args[@]}" -t "${IMAGE_NAME}" -f "${BASE_DIR}/Containerfile" "${BASE_DIR}"
     ok "Build complete."
 }
 

@@ -103,6 +103,7 @@
 FROM debian:bookworm-slim AS base
 
 ARG DEBIAN_FRONTEND=noninteractive
+ARG CONTAINER_RUNTIME=podman
 
 RUN apt-get update
 
@@ -174,6 +175,14 @@ RUN apt-get install -y --no-install-recommends \
     fonts-noto-core \
     dbus-x11 \
     x11-xserver-utils  # provides xhost, used by start-display.sh to grant coder X11 access
+
+# Docker's seccomp profile blocks CLONE_NEWUSER, preventing Chromium's namespace
+# sandbox. The setuid sandbox (chromium-sandbox) is an established alternative
+# that works without user namespace support. Not needed for Podman: rootless
+# Podman runs in a user namespace already, so the namespace sandbox works natively.
+RUN if [ "${CONTAINER_RUNTIME}" = "docker" ]; then \
+        apt-get install -y --no-install-recommends chromium-sandbox; \
+    fi
 
 # apt install artifact clean-up
 RUN apt-get clean \

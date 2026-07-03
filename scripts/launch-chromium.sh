@@ -47,12 +47,13 @@
 #                                      it feel like a standalone desktop app.
 #
 # Sandbox:
-#   --no-sandbox                       Added automatically when USERNS_ACTIVE=0, meaning the
-#                                      container runtime has no user namespace support active.
-#                                      Chromium's renderer sandbox requires CLONE_NEWUSER;
-#                                      without a user namespace this is blocked. Podman rootless
-#                                      and Docker rootless/userns-remap all set USERNS_ACTIVE=1
-#                                      (detected host-side by manage.sh at container start).
+#   Podman (rootless): Chromium uses its namespace sandbox (CLONE_NEWUSER) natively —
+#                      rootless Podman runs in a user namespace already.
+#   Docker:            Chromium uses the setuid sandbox (chromium-sandbox package,
+#                      installed with the setuid bit by the Docker image build).
+#                      Docker's seccomp profile blocks CLONE_NEWUSER, making the
+#                      namespace sandbox unavailable, but the setuid sandbox is an
+#                      established equivalent that requires no host-side configuration.
 # =============================================================
 
 set -euo pipefail
@@ -65,18 +66,7 @@ for _ in $(seq 1 30); do
     sleep 1
 done
 
-# USERNS_ACTIVE is set by manage.sh at container start: "1" when the runtime
-# has user namespace support active (Podman rootless, Docker rootless, or Docker
-# with userns-remap), "0" when it does not. Without user namespace support,
-# Chromium cannot create its renderer sandbox and must fall back to --no-sandbox.
-SANDBOX_ARGS=()
-if [[ "${USERNS_ACTIVE:-0}" != "1" ]]; then
-    echo "[chromium] WARNING: user namespaces unavailable — starting with --no-sandbox."
-    SANDBOX_ARGS=("--no-sandbox")
-fi
-
 exec chromium \
-    "${SANDBOX_ARGS[@]}" \
     --disable-gpu \
     --disable-software-rasterizer \
     --disable-dev-shm-usage \
