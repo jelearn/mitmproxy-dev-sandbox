@@ -47,11 +47,12 @@
 #                                      it feel like a standalone desktop app.
 #
 # Sandbox:
-#   --no-sandbox                       Added automatically when running under Docker without
-#                                      userns-remap. Chromium's renderer sandbox requires
-#                                      CLONE_NEWUSER; Docker blocks this by default. Podman
-#                                      (rootless) runs inside a user namespace already, so
-#                                      nesting is permitted and the sandbox works normally.
+#   --no-sandbox                       Added automatically when USERNS_ACTIVE=0, meaning the
+#                                      container runtime has no user namespace support active.
+#                                      Chromium's renderer sandbox requires CLONE_NEWUSER;
+#                                      without a user namespace this is blocked. Podman rootless
+#                                      and Docker rootless/userns-remap all set USERNS_ACTIVE=1
+#                                      (detected host-side by manage.sh at container start).
 # =============================================================
 
 set -euo pipefail
@@ -64,15 +65,14 @@ for _ in $(seq 1 30); do
     sleep 1
 done
 
-# Chromium's renderer sandbox requires user namespace creation (CLONE_NEWUSER).
-# Docker blocks this by default; detect it and fall back to --no-sandbox rather
-# than crashing. Gated on CONTAINER_RUNTIME=docker so Podman is never affected.
+# USERNS_ACTIVE is set by manage.sh at container start: "1" when the runtime
+# has user namespace support active (Podman rootless, Docker rootless, or Docker
+# with userns-remap), "0" when it does not. Without user namespace support,
+# Chromium cannot create its renderer sandbox and must fall back to --no-sandbox.
 SANDBOX_ARGS=()
-if [[ "${CONTAINER_RUNTIME:-}" == "docker" ]]; then
-    if ! unshare --user -- true 2>/dev/null; then
-        echo "[chromium] WARNING: user namespaces unavailable — starting with --no-sandbox."
-        SANDBOX_ARGS=("--no-sandbox")
-    fi
+if [[ "${USERNS_ACTIVE:-0}" != "1" ]]; then
+    echo "[chromium] WARNING: user namespaces unavailable — starting with --no-sandbox."
+    SANDBOX_ARGS=("--no-sandbox")
 fi
 
 exec chromium \
