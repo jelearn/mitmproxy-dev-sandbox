@@ -98,11 +98,6 @@ is_rootless() {
 
 
 sandbox_start() {
-    # Future decision point: non-rootless will use a direct bind-mount of ./workspace instead.
-    if ! is_rootless; then
-        error "Only rootless ${CRT} is supported. Please configure ${CRT} to run in rootless mode."
-    fi
-
     if [[ "${CRT}" == "docker" ]]; then
         # Docker containers cannot create user namespaces (needed for Chromium's renderer
         # sandbox) unless the containers are granted the CLONE_NEWUSER capbility.
@@ -117,6 +112,11 @@ sandbox_start() {
     fi
 
     ensure_volumes
+    if is_rootless; then
+        ensure_workspace_volume
+    else
+        ensure_workspace_dir
+    fi
     ensure_network
     container_start
     sandbox_workspace_link
@@ -136,21 +136,37 @@ require_running() {
 }
 
 sandbox_workspace_link() {
-    # TODO:  This is only really needed in SE Linux environments,
-    #        really it can be the same as the "workspace" directory otherwise.
     rm -f "${BASE_DIR}/sandbox"
-    SANDBOX_PATH=$("${CRT}" volume inspect --format '{{.Mountpoint}}' "${VOL_WORKSPACE}")
-    ln -fs "${SANDBOX_PATH}" "${BASE_DIR}/sandbox"
+    local sandbox_path
+    if is_rootless; then
+        sandbox_path=$("${CRT}" volume inspect --format '{{.Mountpoint}}' "${VOL_WORKSPACE}")
+    else
+        sandbox_path=$(readlink -f "${WORKSPACE_HOST}")
+    fi
+    ln -fs "${sandbox_path}" "${BASE_DIR}/sandbox"
 }
 
-# Create any named volumes that do not already exist.
+# Create the four non-workspace named volumes (needed in both rootless and non-rootless mode).
 ensure_volumes() {
     local vol
-    for vol in "${VOL_WORKSPACE}" "${VOL_VSCODE_EXT}" "${VOL_CLAUDE_AI}" \
-               "${VOL_OPENCODE}" "${VOL_MITMPROXY_CA}"; do
+    for vol in "${VOL_VSCODE_EXT}" "${VOL_CLAUDE_AI}" "${VOL_OPENCODE}" "${VOL_MITMPROXY_CA}"; do
         "${CRT}" volume inspect "${vol}" > /dev/null 2>&1 \
             || "${CRT}" volume create "${vol}" > /dev/null
     done
+}
+
+# Rootless path: create the workspace named volume if absent.
+ensure_workspace_volume() {
+    "${CRT}" volume inspect "${VOL_WORKSPACE}" > /dev/null 2>&1 \
+        || "${CRT}" volume create "${VOL_WORKSPACE}" > /dev/null
+}
+
+# Non-rootless path: create the local ./workspace directory if absent.
+ensure_workspace_dir() {
+    if [[ ! -d "${WORKSPACE_HOST}" ]]; then
+        info "Creating local workspace directory: ${WORKSPACE_HOST}"
+        mkdir -p "${WORKSPACE_HOST}"
+    fi
 }
 
 # Create the dedicated bridge network if it does not already exist.
@@ -203,6 +219,13 @@ load_latest_config() {
 
 # Start the container with all settings previously defined in compose.yml.
 container_start() {
+    local workspace_mount
+    if is_rootless; then
+        workspace_mount="${VOL_WORKSPACE}:/home/coder/workspace"
+    else
+        workspace_mount="${BASE_PATH}/workspace:/home/coder/workspace"
+    fi
+
     # Podman supports --replace for atomic container replacement.
     # Docker has no equivalent flag; an explicit rm before run achieves the same result.
     local replace_opt=()
@@ -229,7 +252,7 @@ container_start() {
         --memory 8g \
         --cpus 4.0 \
         --shm-size 1g \
-        -v "${VOL_WORKSPACE}:/home/coder/workspace" \
+        -v "${workspace_mount}" \
         -v "${VOL_VSCODE_EXT}:/home/coder/.local/share/code-server/extensions" \
         -v "${VOL_CLAUDE_AI}:/home/coder/.claude" \
         -v "${VOL_OPENCODE}:/home/coder/.config/opencode" \
