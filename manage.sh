@@ -86,8 +86,23 @@ ct_container_exists() {
     fi
 }
 
+# Returns true when the container runtime is operating in rootless mode.
+# Podman exposes this directly; Docker signals it via a "rootless" entry in SecurityOptions.
+is_rootless() {
+    if [[ "${CRT}" == "podman" ]]; then
+        [[ "$("${CRT}" info --format '{{.Host.Security.Rootless}}' 2>/dev/null)" == "true" ]]
+    else
+        "${CRT}" info --format '{{.SecurityOptions}}' 2>/dev/null | grep -q "name=rootless"
+    fi
+}
+
 
 sandbox_start() {
+    # Future decision point: non-rootless will use a direct bind-mount of ./workspace instead.
+    if ! is_rootless; then
+        error "Only rootless ${CRT} is supported. Please configure ${CRT} to run in rootless mode."
+    fi
+
     if [[ "${CRT}" == "docker" ]]; then
         # Docker containers cannot create user namespaces (needed for Chromium's renderer
         # sandbox) unless the containers are granted the CLONE_NEWUSER capbility.
