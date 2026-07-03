@@ -59,6 +59,10 @@ Notes on issues and things to look-into:
                   namespaces for Chromium's sandbox.  Creating feature parity
                   appears to be overly complicated and requires re-defining
                   many more security-opt parameters.
+            - [ ] While rootless is the closest working option, Docker as root
+                  still has issues with SELinux and the host user having at a
+                  minimum read-access at the same time as allowing the guest
+                  coder user having read-write access to the workspace.
         - Docker injects its own firewall rules in the container, unlike podmand,
           for DNS, which interferred with existing sandbox container firewall
           rules, so they needed to be adjusted to be more focused when editing.
