@@ -60,7 +60,9 @@ sandbox_start() {
 
 require_running() {
     AUTO_START="${1:-}"
-    if ! podman container exists "${CONTAINER_NAME}"; then
+    local ct_state
+    ct_state=$(podman inspect --format '{{.State.Status}}' "${CONTAINER_NAME}" 2>/dev/null || true)
+    if [[ "${ct_state}" != "running" ]]; then
         if [[ "${AUTO_START}" == "--start" ]]; then
             info "Container '${CONTAINER_NAME}' not started..."
             sandbox_start
@@ -138,6 +140,16 @@ load_latest_config() {
 
 # Start the container with all settings previously defined in compose.yml.
 container_start() {
+    # --replace handles running/exited/stopped states but fails when Podman's
+    # OCI runtime loses track of the container ('configured' or 'dead' state).
+    # Force-remove first so --replace gets a clean slate.
+    local ct_state
+    ct_state=$(podman inspect --format '{{.State.Status}}' "${CONTAINER_NAME}" 2>/dev/null || true)
+    if [[ "${ct_state}" == "configured" || "${ct_state}" == "dead" ]]; then
+        warn "Container '${CONTAINER_NAME}' is in invalid state '${ct_state}'; force-removing."
+        podman rm -f "${CONTAINER_NAME}" 2>/dev/null || true
+    fi
+
     podman run -d \
         --replace \
         --name "${CONTAINER_NAME}" \
